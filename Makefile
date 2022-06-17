@@ -14,3 +14,11 @@ ARCH = xtensawin
 include $(MPY_DIR)/py/dynruntime.mk
 CROSS = $(COMPILER)/bin/xtensa-esp32s3-elf-
 CFLAGS += -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE
+
+patch: doomgeneric/patch.applied
+
+doomgeneric/patch.applied: doomgeneric.patch
+	cd doomgeneric; \
+	git apply ../doomgeneric.patch; \
+	cd ..; \
+	touch $@
