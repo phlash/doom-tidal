@@ -14,7 +14,7 @@ A much better question:
  * The 'hard bit' of running game logic, then rendering a 3D frame from the
    BSP data in the WAD and the player position, is handled by a gently
    massaged version of the idTech 1 engine, as supplied by the excellent
-   [doomgeneric](https://github.com/nifanfa/doomgeneric), it's a submodule
+   [doomgeneric](https://github.com/ozkl/doomgeneric), it's a submodule
    of this project.
  * The 'other bits' of handling file I/O to the WAD, reading player inputs
    and blitting the frame is written in python using the TiDAL badge API. This
@@ -30,6 +30,7 @@ A much better question:
    esp32s3-elf-gcc11_2_0-esp-2022r1-&lt;your host technology here&gt;.tar.xz
  * Micropython repo (it's a submodule of this project) for final assembly
    of compiled object code into `doomgeneric.mpy` loadable python module
+ * Python3 plus `python3-pyelftools` (on my Debian system)
  * A copy of an appropriate WAD file (search for DOOM1.WAD for demo game)
 
 ## Build 'n Debug
