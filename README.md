@@ -51,7 +51,10 @@ from the micropython project).
 Building should now work via GNU make, provided it's told where to find the
 Xtensa GCC:
 ```bash
-% make -DXTENSA=<path to xtensa top level>
+% make COMPILER=<path to xtensa top level>
+..or..
+% export COMPILER=<path to xtensa top level>
+% make
 ```
 
 Installing the built module and wrapper python looks like this:
