@@ -10,7 +10,10 @@ MPY_DIR=./micropython
 MOD = doomgeneric
 SRC = doomwrapper.c $(addprefix doomgeneric/doomgeneric/,$(DOOMSRC))
 ARCH = xtensawin
-CFLAGS_EXTRA = -DNORMALUNIX -DLINUX -DSNDSERV -D_DEFAULT_SOURCE -Idoomgeneric/doomgeneric
+CFLAGS_EXTRA = -D_DEFAULT_SOURCE -Idoomgeneric/doomgeneric
+# support for additional objects to link, patched into micropython
+OBJ_EXTRA = _divsf3.o _extendsfdf2.o _truncdfsf2.o _floatsidf.o _divdf3.o _muldf3.o _addsubdf3.o _divdi3.o _cmpdf2.o
+LINK_EXTRA = $(addprefix $(BUILD)/,$(OBJ_EXTRA))
 
 include $(MPY_DIR)/py/dynruntime.mk
 CROSS = $(COMPILER)/bin/xtensa-esp32s3-elf-
@@ -19,11 +22,17 @@ PATCH_FLAG = $(BUILD)/patch.applied
 
 $(CONFIG_H): $(PATCH_FLAG)
 
-$(PATCH_FLAG): doomgeneric.patch
+$(PATCH_FLAG): doomgeneric.patch micropython.patch
 	cd doomgeneric; \
 	git apply ../doomgeneric.patch; \
+	cd ../micropython; \
+	git apply ../micropython.patch; \
 	cd ..; \
 	touch $@
 
+# Extract specific additional objects from libgcc for linking, because mpy_ld.py is too dumb :-(
+$(LINK_EXTRA): $(COMPILER)/lib/gcc/xtensa-esp32s3-elf/11.2.0/libgcc.a
+	$(CROSS)ar x $< --output $(BUILD) $(notdir $@)
+
 # Magical munging to clean patching
-CLEAN_EXTRA = ; cd doomgeneric; git reset --hard
+CLEAN_EXTRA = ; cd doomgeneric; git reset --hard; cd ../micropython; git reset --hard

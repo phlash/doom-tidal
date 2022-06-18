@@ -1,5 +1,5 @@
 diff --git a/doomgeneric/am_map.c b/doomgeneric/am_map.c
-index d3d504e..9570374 100644
+index d3d504e..18c4cae 100644
 --- a/doomgeneric/am_map.c
 +++ b/doomgeneric/am_map.c
 @@ -141,7 +141,7 @@ typedef struct
@@ -43,11 +43,11 @@ index d3d504e..9570374 100644
  
 -static int 	cheating = 0;
 -static int 	grid = 0;
+-
+-static int 	leveljuststarted = 1; 	// kluge until AM_LevelInit() is called
 +static int 	cheating;
 +static int 	grid;
  
--static int 	leveljuststarted = 1; 	// kluge until AM_LevelInit() is called
--
 -boolean    	automapactive = false;
 -static int 	finit_width = SCREENWIDTH;
 -static int 	finit_height = SCREENHEIGHT - 32;
@@ -71,13 +71,13 @@ index d3d504e..9570374 100644
  static patch_t *marknums[10]; // numbers used for marking by the automap
  static mpoint_t markpoints[AM_NUMMARKPOINTS]; // where the points are
 -static int markpointnum = 0; // next point to be assigned
--
--static int followplayer = 1; // specifies whether to follow the player around
 +static int markpointnum; // next point to be assigned
  
--cheatseq_t cheat_amap = CHEAT("iddt", 0);
+-static int followplayer = 1; // specifies whether to follow the player around
 +static int followplayer; // specifies whether to follow the player around
  
+-cheatseq_t cheat_amap = CHEAT("iddt", 0);
+-
 -static boolean stopped = true;
 +const cheatseq_t cheat_amap = CHEAT("iddt", 0);
  
@@ -153,7 +153,23 @@ index d3d504e..9570374 100644
  	{
  	    rc = false;
  	    cheating = (cheating+1) % 3;
-@@ -1255,11 +1245,11 @@ void AM_drawPlayers(void)
+@@ -995,15 +985,12 @@ AM_drawFline
+     register int ay;
+     register int d;
+     
+-    static int fuck = 0;
+-
+     // For debugging only
+     if (      fl->a.x < 0 || fl->a.x >= f_w
+ 	   || fl->a.y < 0 || fl->a.y >= f_h
+ 	   || fl->b.x < 0 || fl->b.x >= f_w
+ 	   || fl->b.y < 0 || fl->b.y >= f_h)
+     {
+-        DEH_fprintf(stderr, "fuck %d \r", fuck++);
+ 	return;
+     }
+ 
+@@ -1255,11 +1242,11 @@ void AM_drawPlayers(void)
      {
  	if (cheating)
  	    AM_drawLineCharacter
@@ -167,7 +183,7 @@ index d3d504e..9570374 100644
  		 WHITE, plr->mo->x, plr->mo->y);
  	return;
      }
-@@ -1281,7 +1271,7 @@ void AM_drawPlayers(void)
+@@ -1281,7 +1268,7 @@ void AM_drawPlayers(void)
  	    color = their_colors[their_color];
  	
  	AM_drawLineCharacter
@@ -176,7 +192,7 @@ index d3d504e..9570374 100644
  	     color, p->mo->x, p->mo->y);
      }
  
-@@ -1301,7 +1291,7 @@ AM_drawThings
+@@ -1301,7 +1288,7 @@ AM_drawThings
  	while (t)
  	{
  	    AM_drawLineCharacter
@@ -660,7 +676,7 @@ index ca6775e..65de944 100644
      castframes = 0;
      castattacking = false;
 diff --git a/doomgeneric/g_game.c b/doomgeneric/g_game.c
-index 9954d78..c5db369 100644
+index 9954d78..f550384 100644
 --- a/doomgeneric/g_game.c
 +++ b/doomgeneric/g_game.c
 @@ -138,9 +138,9 @@ byte*		demo_p;
@@ -729,7 +745,33 @@ index 9954d78..c5db369 100644
   
  int G_CmdChecksum (ticcmd_t* cmd) 
  { 
-@@ -579,7 +579,7 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
+@@ -367,12 +367,10 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
+     { 
+ 	if (gamekeydown[key_right]) 
+ 	{
+-	    // fprintf(stderr, "strafe right\n");
+ 	    side += sidemove[speed]; 
+ 	}
+ 	if (gamekeydown[key_left]) 
+ 	{
+-	    //	fprintf(stderr, "strafe left\n");
+ 	    side -= sidemove[speed]; 
+ 	}
+ 	if (joyxmove > 0) 
+@@ -395,12 +393,10 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
+  
+     if (gamekeydown[key_up]) 
+     {
+-	// fprintf(stderr, "up\n");
+ 	forward += forwardmove[speed]; 
+     }
+     if (gamekeydown[key_down]) 
+     {
+-	// fprintf(stderr, "down\n");
+ 	forward -= forwardmove[speed]; 
+     }
+ 
+@@ -579,7 +575,7 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
  
      if (lowres_turn)
      {
@@ -738,7 +780,7 @@ index 9954d78..c5db369 100644
          signed short desired_angleturn;
  
          desired_angleturn = cmd->angleturn + carry;
-@@ -1301,7 +1301,7 @@ void G_ScreenShot (void)
+@@ -1301,7 +1297,7 @@ void G_ScreenShot (void)
  
  
  // DOOM Par Times
@@ -747,7 +789,7 @@ index 9954d78..c5db369 100644
  { 
      {0}, 
      {0,30,75,120,90,165,180,180,30,165}, 
-@@ -1310,7 +1310,7 @@ int pars[4][10] =
+@@ -1310,7 +1306,7 @@ int pars[4][10] =
  }; 
  
  // DOOM II Par Times
@@ -756,7 +798,7 @@ index 9954d78..c5db369 100644
  {
      30,90,120,120,90,150,120,120,270,90,	//  1-10
      210,150,150,150,210,150,420,150,210,150,	// 11-20
-@@ -1723,6 +1723,12 @@ void G_DoNewGame (void)
+@@ -1723,6 +1719,12 @@ void G_DoNewGame (void)
  } 
  
  
@@ -769,7 +811,7 @@ index 9954d78..c5db369 100644
  void
  G_InitNew
  ( skill_t	skill,
-@@ -1809,6 +1815,8 @@ G_InitNew
+@@ -1809,6 +1811,8 @@ G_InitNew
      else
  	respawnmonsters = false;
  
@@ -778,7 +820,7 @@ index 9954d78..c5db369 100644
      if (fastparm || (skill == sk_nightmare && gameskill != sk_nightmare) )
      {
  	for (i=S_SARG_RUN1 ; i<=S_SARG_PAIN2 ; i++)
-@@ -1825,7 +1833,7 @@ G_InitNew
+@@ -1825,7 +1829,7 @@ G_InitNew
  	mobjinfo[MT_HEADSHOT].speed = 10*FRACUNIT;
  	mobjinfo[MT_TROOPSHOT].speed = 10*FRACUNIT;
      }
@@ -811,7 +853,7 @@ index da0df39..2258c05 100644
  #endif
  
 diff --git a/doomgeneric/hu_stuff.c b/doomgeneric/hu_stuff.c
-index b63cac7..5d5b03c 100644
+index b63cac7..c7af8cd 100644
 --- a/doomgeneric/hu_stuff.c
 +++ b/doomgeneric/hu_stuff.c
 @@ -61,7 +61,7 @@
@@ -932,10 +974,11 @@ index b63cac7..5d5b03c 100644
  
      numplayers = 0;
      for (i=0 ; i<MAXPLAYERS ; i++)
-@@ -593,7 +593,7 @@ boolean HU_Responder(event_t *ev)
+@@ -592,8 +592,7 @@ boolean HU_Responder(event_t *ev)
+ 	    c = ev->data1 - '0';
  	    if (c > 9)
  		return false;
- 	    // fprintf(stderr, "got here\n");
+-	    // fprintf(stderr, "got here\n");
 -	    macromessage = chat_macros[c];
 +	    macromessage = (char *)chat_macros[c];
  	    
@@ -954,6 +997,19 @@ index a3affc5..72a0d9e 100644
  
  #endif
  
+diff --git a/doomgeneric/i_cdmus.c b/doomgeneric/i_cdmus.c
+index 6a9a9a6..784ed71 100644
+--- a/doomgeneric/i_cdmus.c
++++ b/doomgeneric/i_cdmus.c
+@@ -99,7 +99,7 @@ void I_CDMusPrintStartup(void)
+ 
+     if (startup_error != NULL)
+     {
+-        fprintf(stderr, "I_CDMusInit: %s\n", startup_error);
++        printf("I_CDMusInit: %s\n", startup_error);
+     }
+ #endif
+ }
 diff --git a/doomgeneric/i_input.c b/doomgeneric/i_input.c
 index 7ec4b63..dbd8dcc 100644
 --- a/doomgeneric/i_input.c
@@ -1067,7 +1123,7 @@ index 755aec3..a1b27ec 100644
  }
  
 diff --git a/doomgeneric/i_scale.c b/doomgeneric/i_scale.c
-index f88c694..c41064a 100644
+index f88c694..c705082 100644
 --- a/doomgeneric/i_scale.c
 +++ b/doomgeneric/i_scale.c
 @@ -49,11 +49,11 @@ static int dest_pitch;
@@ -1129,7 +1185,26 @@ index f88c694..c41064a 100644
      SCREENWIDTH * 5, SCREENHEIGHT * 5,
      NULL,
      I_Scale5x,
-@@ -497,7 +497,7 @@ static boolean I_Stretch1x(int x1, int y1, int x2, int y2)
+@@ -375,9 +375,8 @@ static void I_InitStretchTables(byte *palette)
+     // mix 100% =  just write line 2
+ 
+     printf("I_InitStretchTables: Generating lookup tables..");
+-    fflush(stdout);
+     stretch_tables[0] = GenerateStretchTable(palette, 20);
+-    printf(".."); fflush(stdout);
++    printf("..");
+     stretch_tables[1] = GenerateStretchTable(palette, 40);
+     puts("");
+ }
+@@ -392,7 +391,6 @@ static void I_InitSquashTable(byte *palette)
+     }
+ 
+     printf("I_InitSquashTable: Generating lookup table..");
+-    fflush(stdout);
+     half_stretch_table = GenerateStretchTable(palette, 50);
+     puts("");
+ }
+@@ -497,7 +495,7 @@ static boolean I_Stretch1x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1138,7 +1213,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH, SCREENHEIGHT_4_3,
      I_InitStretchTables,
      I_Stretch1x,
-@@ -610,7 +610,7 @@ static boolean I_Stretch2x(int x1, int y1, int x2, int y2)
+@@ -610,7 +608,7 @@ static boolean I_Stretch2x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1147,7 +1222,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH * 2, SCREENHEIGHT_4_3 * 2,
      I_InitStretchTables,
      I_Stretch2x,
-@@ -749,7 +749,7 @@ static boolean I_Stretch3x(int x1, int y1, int x2, int y2)
+@@ -749,7 +747,7 @@ static boolean I_Stretch3x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1156,7 +1231,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH * 3, SCREENHEIGHT_4_3 * 3,
      I_InitStretchTables,
      I_Stretch3x,
-@@ -914,7 +914,7 @@ static boolean I_Stretch4x(int x1, int y1, int x2, int y2)
+@@ -914,7 +912,7 @@ static boolean I_Stretch4x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1165,7 +1240,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH * 4, SCREENHEIGHT_4_3 * 4,
      I_InitStretchTables,
      I_Stretch4x,
-@@ -1004,7 +1004,7 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
+@@ -1004,7 +1002,7 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1174,7 +1249,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH * 5, SCREENHEIGHT_4_3 * 5,
      I_InitStretchTables,
      I_Stretch5x,
-@@ -1084,7 +1084,7 @@ static boolean I_Squash1x(int x1, int y1, int x2, int y2)
+@@ -1084,7 +1082,7 @@ static boolean I_Squash1x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1183,7 +1258,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH_4_3, SCREENHEIGHT,
      I_InitStretchTables,
      I_Squash1x,
-@@ -1183,7 +1183,7 @@ static boolean I_Squash2x(int x1, int y1, int x2, int y2)
+@@ -1183,7 +1181,7 @@ static boolean I_Squash2x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1192,7 +1267,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH_4_3 * 2, SCREENHEIGHT * 2,
      I_InitStretchTables,
      I_Squash2x,
-@@ -1266,7 +1266,7 @@ static boolean I_Squash3x(int x1, int y1, int x2, int y2)
+@@ -1266,7 +1264,7 @@ static boolean I_Squash3x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1201,7 +1276,7 @@ index f88c694..c41064a 100644
      800, 600,
      I_InitSquashTable,
      I_Squash3x,
-@@ -1377,7 +1377,7 @@ static boolean I_Squash4x(int x1, int y1, int x2, int y2)
+@@ -1377,7 +1375,7 @@ static boolean I_Squash4x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1210,7 +1285,7 @@ index f88c694..c41064a 100644
      SCREENWIDTH_4_3 * 4, SCREENHEIGHT * 4,
      I_InitStretchTables,
      I_Squash4x,
-@@ -1442,7 +1442,7 @@ static boolean I_Squash5x(int x1, int y1, int x2, int y2)
+@@ -1442,7 +1440,7 @@ static boolean I_Squash5x(int x1, int y1, int x2, int y2)
      return true;
  }
  
@@ -1339,10 +1414,31 @@ index e429e96..7570a28 100644
      // pitch if a link
      int pitch;
 diff --git a/doomgeneric/i_system.c b/doomgeneric/i_system.c
-index 5d00091..af5f235 100644
+index 5d00091..f1f1876 100644
 --- a/doomgeneric/i_system.c
 +++ b/doomgeneric/i_system.c
-@@ -494,17 +494,17 @@ static const unsigned char mem_dump_dosbox[DOS_MEM_DUMP_SIZE] = {
+@@ -365,7 +365,6 @@ void I_Error (char *error, ...)
+ 
+     if (already_quitting)
+     {
+-        fprintf(stderr, "Warning: recursive call to I_Error detected.\n");
+ #if ORIGCODE
+         exit(-1);
+ #endif
+@@ -378,10 +377,9 @@ void I_Error (char *error, ...)
+     // Message first.
+     va_start(argptr, error);
+     //fprintf(stderr, "\nError: ");
+-    vfprintf(stderr, error, argptr);
+-    fprintf(stderr, "\n\n");
++    vprintf(error, argptr);
++    printf("\n\n");
+     va_end(argptr);
+-    fflush(stderr);
+ 
+     // Write a copy of the message into buffer.
+     va_start(argptr, error);
+@@ -494,17 +492,17 @@ static const unsigned char mem_dump_dosbox[DOS_MEM_DUMP_SIZE] = {
    0x00, 0x00, 0x00, 0xF1, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00};
  static unsigned char mem_dump_custom[DOS_MEM_DUMP_SIZE];
  
@@ -2238,7 +2334,7 @@ index f0ffa01..956a97f 100644
  }
  
 diff --git a/doomgeneric/m_menu.c b/doomgeneric/m_menu.c
-index 6df9655..f8e4c3f 100644
+index 6df9655..3a24e46 100644
 --- a/doomgeneric/m_menu.c
 +++ b/doomgeneric/m_menu.c
 @@ -67,15 +67,15 @@ extern boolean		chat_on;		// in heads-up code
@@ -2529,7 +2625,17 @@ index 6df9655..f8e4c3f 100644
  }
  
  
-@@ -1102,7 +1113,7 @@ void M_FinishReadThis(int choice)
+@@ -967,8 +978,7 @@ void M_Episode(int choice)
+     if ( (gamemode == registered)
+ 	 && (choice > 2))
+     {
+-      fprintf( stderr,
+-	       "M_Episode: 4th episode requires UltimateDOOM\n");
++      printf("M_Episode: 4th episode requires UltimateDOOM\n");
+       choice = 0;
+     }
+ 	 
+@@ -1102,7 +1112,7 @@ void M_FinishReadThis(int choice)
  //
  // M_QuitDOOM
  //
@@ -2538,7 +2644,7 @@ index 6df9655..f8e4c3f 100644
  {
      sfx_pldeth,
      sfx_dmpain,
-@@ -1114,7 +1125,7 @@ int     quitsounds[8] =
+@@ -1114,7 +1124,7 @@ int     quitsounds[8] =
      sfx_sgtatk
  };
  
@@ -2547,7 +2653,7 @@ index 6df9655..f8e4c3f 100644
  {
      sfx_vilact,
      sfx_getpow,
-@@ -1152,13 +1163,13 @@ static char *M_SelectEndMessage(void)
+@@ -1152,13 +1162,13 @@ static char *M_SelectEndMessage(void)
      {
          // Doom 1
  
@@ -2563,7 +2669,7 @@ index 6df9655..f8e4c3f 100644
      }
  
      return endmsg[gametic % NUM_QUITMESSAGES];
-@@ -1745,7 +1756,7 @@ boolean M_Responder (event_t* ev)
+@@ -1745,7 +1755,7 @@ boolean M_Responder (event_t* ev)
  	    usegamma++;
  	    if (usegamma > 4)
  		usegamma = 0;
@@ -2572,7 +2678,7 @@ index 6df9655..f8e4c3f 100644
              I_SetPalette (W_CacheLumpName (DEH_String("PLAYPAL"),PU_CACHE));
  	    return true;
  	}
-@@ -2018,7 +2029,7 @@ void M_Drawer (void)
+@@ -2018,7 +2028,7 @@ void M_Drawer (void)
  
      for (i=0;i<max;i++)
      {
@@ -2581,7 +2687,7 @@ index 6df9655..f8e4c3f 100644
  
  	if (name[0])
  	{
-@@ -2030,7 +2041,7 @@ void M_Drawer (void)
+@@ -2030,7 +2040,7 @@ void M_Drawer (void)
      
      // DRAW SKULL
      V_DrawPatchDirect(x + SKULLXOFF, currentMenu->y - 5 + itemOn*LINEHEIGHT,
@@ -2590,7 +2696,7 @@ index 6df9655..f8e4c3f 100644
  				      PU_CACHE));
  }
  
-@@ -2076,6 +2087,22 @@ void M_Ticker (void)
+@@ -2076,6 +2086,22 @@ void M_Ticker (void)
  //
  void M_Init (void)
  {
@@ -2613,7 +2719,7 @@ index 6df9655..f8e4c3f 100644
      currentMenu = &MainDef;
      menuactive = 0;
      itemOn = currentMenu->lastOn;
-@@ -2095,10 +2122,12 @@ void M_Init (void)
+@@ -2095,10 +2121,12 @@ void M_Init (void)
      {
        case commercial:
          // Commercial has no "read this" entry.
@@ -2626,7 +2732,7 @@ index 6df9655..f8e4c3f 100644
  	break;
        case shareware:
  	// Episode 2 and 3 are handled,
-@@ -2117,7 +2146,7 @@ void M_Init (void)
+@@ -2117,7 +2145,7 @@ void M_Init (void)
      // (should crash if missing).
      if (gameversion < exe_ultimate)
      {
@@ -2635,6 +2741,19 @@ index 6df9655..f8e4c3f 100644
      }
  
      //opldev = M_CheckParm("-opldev") > 0;
+diff --git a/doomgeneric/p_doors.c b/doomgeneric/p_doors.c
+index cafab0f..9b9845e 100644
+--- a/doomgeneric/p_doors.c
++++ b/doomgeneric/p_doors.c
+@@ -437,7 +437,7 @@ EV_VerticalDoor
+                 {
+                     // This isn't a door OR a plat.  Now we're in trouble.
+ 
+-                    fprintf(stderr, "EV_VerticalDoor: Tried to close "
++                    printf("EV_VerticalDoor: Tried to close "
+                                     "something that wasn't a door.\n");
+ 
+                     // Try closing it anyway. At least it will work on 32-bit
 diff --git a/doomgeneric/p_enemy.c b/doomgeneric/p_enemy.c
 index f2b44d1..8845320 100644
 --- a/doomgeneric/p_enemy.c
@@ -2705,6 +2824,19 @@ index 95fa405..442a3fe 100644
  
  void
  P_TouchSpecialThing
+diff --git a/doomgeneric/p_map.c b/doomgeneric/p_map.c
+index e371869..ab4896e 100644
+--- a/doomgeneric/p_map.c
++++ b/doomgeneric/p_map.c
+@@ -1439,7 +1439,7 @@ static void SpechitOverrun(line_t *ld)
+             nofit = addr; 
+             break;
+         default:
+-            fprintf(stderr, "SpechitOverrun: Warning: unable to emulate"
++            printf("SpechitOverrun: Warning: unable to emulate"
+                             "an overrun where numspechit=%i\n",
+                             numspechit);
+             break;
 diff --git a/doomgeneric/p_mobj.c b/doomgeneric/p_mobj.c
 index a3b9c43..c114f1c 100644
 --- a/doomgeneric/p_mobj.c
@@ -2750,9 +2882,27 @@ index e4774c7..19b6324 100644
  	psp->tics = state->tics;	// could be 0
  
 diff --git a/doomgeneric/p_saveg.c b/doomgeneric/p_saveg.c
-index 5cb8196..f36a8dd 100644
+index 5cb8196..fd81f7b 100644
 --- a/doomgeneric/p_saveg.c
 +++ b/doomgeneric/p_saveg.c
+@@ -86,7 +86,7 @@ static byte saveg_read8(void)
+     {
+         if (!savegame_error)
+         {
+-            fprintf(stderr, "saveg_read8: Unexpected end of file while "
++            printf("saveg_read8: Unexpected end of file while "
+                             "reading save game\n");
+ 
+             savegame_error = true;
+@@ -102,7 +102,7 @@ static void saveg_write8(byte value)
+     {
+         if (!savegame_error)
+         {
+-            fprintf(stderr, "saveg_write8: Error while writing save game\n");
++            printf("saveg_write8: Error while writing save game\n");
+ 
+             savegame_error = true;
+         }
 @@ -372,7 +372,7 @@ static void saveg_read_mobj_t(mobj_t *str)
      str->tics = saveg_read32();
  
@@ -2781,9 +2931,18 @@ index 5cb8196..f36a8dd 100644
  	    mobj->ceilingz = mobj->subsector->sector->ceilingheight;
  	    mobj->thinker.function.acp1 = (actionf_p1)P_MobjThinker;
 diff --git a/doomgeneric/p_setup.c b/doomgeneric/p_setup.c
-index 00306e8..984f70a 100644
+index 00306e8..07bae1f 100644
 --- a/doomgeneric/p_setup.c
 +++ b/doomgeneric/p_setup.c
+@@ -691,7 +691,7 @@ static void PadRejectArray(byte *array, unsigned int len)
+ 
+     if (len > sizeof(rejectpad))
+     {
+-        fprintf(stderr, "PadRejectArray: REJECT lump too short to pad! (%i > %i)\n",
++        printf("PadRejectArray: REJECT lump too short to pad! (%i > %i)\n",
+                         len, (int) sizeof(rejectpad));
+ 
+         // Pad remaining space with 0 (or 0xff, if specified on command line).
 @@ -748,7 +748,7 @@ P_SetupLevel
    skill_t	skill)
  {
@@ -2815,7 +2974,7 @@ index 00306e8..984f70a 100644
  
  
 diff --git a/doomgeneric/p_spec.c b/doomgeneric/p_spec.c
-index 17446b5..0ff7ca5 100644
+index 17446b5..8157765 100644
 --- a/doomgeneric/p_spec.c
 +++ b/doomgeneric/p_spec.c
 @@ -93,7 +93,7 @@ extern anim_t*	lastanim;
@@ -2860,6 +3019,51 @@ index 17446b5..0ff7ca5 100644
  
          // Default values
          tmp_s3_floorheight = DONUT_FLOORHEIGHT_DEFAULT;
+@@ -1228,8 +1228,7 @@ static void DonutOverrun(fixed_t *s3_floorheight, short *s3_floorpic,
+ 
+             if (tmp_s3_floorpic >= numflats)
+             {
+-                fprintf(stderr,
+-                        "DonutOverrun: The second parameter for \"-donut\" "
++                printf("DonutOverrun: The second parameter for \"-donut\" "
+                         "switch should be greater than 0 and less than number "
+                         "of flats (%d). Using default value (%d) instead. \n",
+                         numflats, DONUT_FLOORPIC_DEFAULT);
+@@ -1238,14 +1237,6 @@ static void DonutOverrun(fixed_t *s3_floorheight, short *s3_floorpic,
+         }
+     }
+ 
+-    /*
+-    fprintf(stderr,
+-            "Linedef: %d; Sector: %d; "
+-            "New floor height: %d; New floor pic: %d\n",
+-            line->iLineID, pillar_sector->iSectorID,
+-            tmp_s3_floorheight >> 16, tmp_s3_floorpic);
+-     */
+-
+     *s3_floorheight = (fixed_t) tmp_s3_floorheight;
+     *s3_floorpic = (short) tmp_s3_floorpic;
+ }
+@@ -1290,8 +1281,7 @@ int EV_DoDonut(line_t*	line)
+ 
+         if (s2 == NULL)
+         {
+-            fprintf(stderr,
+-                    "EV_DoDonut: linedef had no second sidedef! "
++            printf( "EV_DoDonut: linedef had no second sidedef! "
+                     "Unexpected behavior may occur in Vanilla Doom. \n");
+ 	    break;
+         }
+@@ -1311,8 +1301,7 @@ int EV_DoDonut(line_t*	line)
+                 // s3->floorpic is a short at 0000:0008
+                 // Trying to emulate
+ 
+-                fprintf(stderr,
+-                        "EV_DoDonut: WARNING: emulating buffer overrun due to "
++                printf("EV_DoDonut: WARNING: emulating buffer overrun due to "
+                         "NULL back sector. "
+                         "Unexpected behavior may occur in Vanilla Doom.\n");
+ 
 diff --git a/doomgeneric/p_switch.c b/doomgeneric/p_switch.c
 index ed4feec..60f5864 100644
 --- a/doomgeneric/p_switch.c
@@ -3273,7 +3477,7 @@ index 1e8afc4..f6b8332 100644
 +
  #endif
 diff --git a/doomgeneric/st_stuff.c b/doomgeneric/st_stuff.c
-index e25accc..6a4e724 100644
+index e25accc..d06b209 100644
 --- a/doomgeneric/st_stuff.c
 +++ b/doomgeneric/st_stuff.c
 @@ -275,7 +275,7 @@ static int		lu_palette;
@@ -3340,7 +3544,15 @@ index e25accc..6a4e724 100644
  
  
  //
-@@ -666,7 +666,7 @@ int ST_calcPainOffset(void)
+@@ -452,7 +452,6 @@ ST_Responder (event_t* ev)
+ 	break;
+ 	
+       case AM_MSGEXITED:
+-	//	fprintf(stderr, "AM exited\n");
+ 	st_gamestate = FirstPersonState;
+ 	break;
+     }
+@@ -666,7 +665,7 @@ int ST_calcPainOffset(void)
  {
      int		health;
      static int	lastcalc;
@@ -3349,7 +3561,7 @@ index e25accc..6a4e724 100644
      
      health = plyr->health > 100 ? 100 : plyr->health;
  
-@@ -690,10 +690,15 @@ void ST_updateFaceWidget(void)
+@@ -690,10 +689,15 @@ void ST_updateFaceWidget(void)
      int		i;
      angle_t	badguyangle;
      angle_t	diffang;
@@ -3367,7 +3579,7 @@ index e25accc..6a4e724 100644
      if (priority < 10)
      {
  	// dead
-@@ -859,8 +864,13 @@ void ST_updateFaceWidget(void)
+@@ -859,8 +863,13 @@ void ST_updateFaceWidget(void)
  
  void ST_updateWidgets(void)
  {
@@ -3382,7 +3594,7 @@ index e25accc..6a4e724 100644
  
      // must redirect the pointer if the ready weapon has changed.
      //  if (w_ready.data != plyr->readyweapon)
-@@ -931,7 +941,7 @@ void ST_Ticker (void)
+@@ -931,7 +940,7 @@ void ST_Ticker (void)
  
  }
  
@@ -3391,7 +3603,7 @@ index e25accc..6a4e724 100644
  
  void ST_doPaletteStuff(void)
  {
-@@ -1383,33 +1393,34 @@ void ST_createWidgets(void)
+@@ -1383,33 +1392,34 @@ void ST_createWidgets(void)
  
  }
  
