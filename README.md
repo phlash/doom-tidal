@@ -38,10 +38,10 @@ A much better question:
 First, ensure you have the Xtensa GCC cross-compiler for you host system
 installed (unpacked) somewhere easy to refer to by environment variable.
 
-Second, clone this project, and yank those submodules:
+Second, clone this project, and yank those submodules (but __not__ recursive!):
 ```bash
 % cd <project dir>
-% git submodule init --update --recursive
+% git submodule init --update
 ```
 
 Thirdly, check you can access the TiDAL badge python REPL via serial port
