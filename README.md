@@ -59,13 +59,15 @@ Xtensa GCC:
 
 Installing the built module and wrapper python looks like this:
 ```bash
-% micropython/tools/pyboard.py --no-soft-reset -f mkdir /apps/doom
-% micropython/tools/pyboard.py --no-soft-reset -f cp wrapper/__init__.py :/apps/doom/
-% micropython/tools/pyboard.py --no-soft-reset -f cp build/doomgeneric.mpy :/apps/doom/
-% micropython/tools/pyboard.py --no-soft-reset -f cp <path to .WAD file> :/apps/doom/game.wad
+% make install
+<..or..>
+% micropython/tools/pyboard.py --no-soft-reset -f mkdir /apps/Doom
+% micropython/tools/pyboard.py --no-soft-reset -f cp wrapper/__init__.py :/apps/Doom/
+% micropython/tools/pyboard.py --no-soft-reset -f cp build/doomgeneric.mpy :/apps/Doom/
+% micropython/tools/pyboard.py --no-soft-reset -f cp <path to .WAD file> :/apps/Doom/game.wad
 ```
 
 Debugging is by resetting the badge, then connecting your favourite serial
 terminal program (I like `minicom`) to the TiDAL badge REPL, before selecting
-`doom` app on the badge screen...
+`Doom` app on the badge screen...
 
