@@ -1,8 +1,8 @@
 diff --git a/py/dynruntime.mk b/py/dynruntime.mk
-index db06d41e7..a75e72c0e 100644
+index 09cbb2dd3..c4b31e66d 100644
 --- a/py/dynruntime.mk
 +++ b/py/dynruntime.mk
-@@ -133,7 +133,7 @@ $(BUILD)/%.mpy: %.py
+@@ -140,7 +140,7 @@ $(BUILD)/%.mpy: %.py
  	$(Q)$(MPY_CROSS) $(MPY_CROSS_FLAGS) -o $@ $<
  
  # Build native .mpy from object files
@@ -11,3 +11,46 @@ index db06d41e7..a75e72c0e 100644
  	$(ECHO) "LINK $<"
  	$(Q)$(MPY_LD) --arch $(ARCH) --qstrs $(CONFIG_H) -o $@ $^
  
+diff --git a/tools/mpy_ld.py b/tools/mpy_ld.py
+index 09ea90dcd..af7e27942 100755
+--- a/tools/mpy_ld.py
++++ b/tools/mpy_ld.py
+@@ -76,6 +76,7 @@ R_X86_64_GOTPCREL = 9
+ R_X86_64_REX_GOTPCRELX = 42
+ R_386_GOT32X = 43
+ R_XTENSA_PDIFF32 = 59
++R_XTENSA_NDIFF32 = 62
+ 
+ ################################################################################
+ # Architecture configuration
+@@ -575,9 +576,9 @@ def do_relocation_text(env, text_addr, r):
+         reloc = addr - r_offset
+         reloc_type = "xtensa_l32r"
+ 
+-    elif env.arch.name == "EM_XTENSA" and r_info_type in (R_XTENSA_DIFF32, R_XTENSA_PDIFF32):
++    elif env.arch.name == "EM_XTENSA" and r_info_type in (R_XTENSA_DIFF32, R_XTENSA_PDIFF32, R_XTENSA_NDIFF32):
+         if s.section.name.startswith(".text"):
+-            # it looks like R_XTENSA_[P]DIFF32 into .text is already correctly relocated
++            # it looks like R_XTENSA_[P|N]DIFF32 into .text is already correctly relocated
+             return
+         assert 0
+ 
+@@ -638,6 +639,9 @@ def do_relocation_data(env, text_addr, r):
+         or env.arch.name == "EM_XTENSA"
+         and r_info_type == R_XTENSA_32
+     ):
++        # Bug fix: use resolved symbol if available (as per text relocs)
++        if hasattr(s, "resolved"):
++            s = s.resolved
+         # Relocation in data.rel.ro to internal/external symbol
+         if env.arch.word_size == 4:
+             struct_type = "<I"
+@@ -965,7 +969,7 @@ def build_mpy(env, entry_offset, fmpy, native_qstr_vals, native_qstr_objs):
+     for base, addr, kind in env.mpy_relocs:
+         if isinstance(kind, str) and kind.startswith(".text"):
+             kind = 0
+-        elif kind in (".rodata", ".data.rel.ro"):
++        elif isinstance(kind, str) and (kind.startswith(".rodata") or kind.startswith(".data.rel.ro")):
+             if env.arch.separate_rodata:
+                 kind = rodata_const_table_idx
+             else:

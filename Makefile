@@ -18,6 +18,8 @@ LINK_EXTRA = $(addprefix $(BUILD)/,$(OBJ_EXTRA))
 include $(MPY_DIR)/py/dynruntime.mk
 CROSS = $(COMPILER)/bin/xtensa-esp32s3-elf-
 
+#MPY_LD += '-vvv'
+
 PATCH_FLAG = $(BUILD)/patch.applied
 
 $(CONFIG_H): $(PATCH_FLAG)
@@ -35,4 +37,4 @@ $(LINK_EXTRA): $(COMPILER)/lib/gcc/xtensa-esp32s3-elf/11.2.0/libgcc.a
 	$(CROSS)ar x $< --output $(BUILD) $(notdir $@)
 
 # Magical munging to clean patching
-CLEAN_EXTRA = ; cd doomgeneric; git reset --hard; cd ../micropython; git reset --hard
+CLEAN_EXTRA = doomgeneric.mpy; cd doomgeneric; git reset --hard; cd ../micropython; git reset --hard
