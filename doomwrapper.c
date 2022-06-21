@@ -24,6 +24,7 @@
 #undef true
 #undef false
 #include "m_argv.h"
+#include "doomgeneric.h"
 
 void D_DoomMain (void);
 
@@ -56,37 +57,68 @@ STATIC mp_obj_t doom(mp_obj_t callback)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(doom_obj, doom);
 
+STATIC mp_obj_t d_memset(mp_obj_t bobj, mp_obj_t iobj)
+{
+	// this uses the buffer protocol to gain access to raw buffer for memset()
+	mp_buffer_info_t binf;
+	mp_get_buffer_raise(bobj, &binf, MP_BUFFER_WRITE);
+	mp_fun_table.memset_(binf.buf, mp_obj_get_int(iobj), binf.len);
+	return bobj;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(d_memset_obj, d_memset);
+
 // == Entry point
 mp_obj_t mpy_init(mp_obj_fun_bc_t *self, size_t n_args, size_t n_kw, mp_obj_t *args)
 {
 	MP_DYNRUNTIME_INIT_ENTRY;
 	mp_store_global(MP_QSTR_doom, MP_OBJ_FROM_PTR(&doom_obj));
+	mp_store_global(MP_QSTR_d_memset, MP_OBJ_FROM_PTR(&d_memset_obj));
 	MP_DYNRUNTIME_INIT_EXIT;
 }
 
 // == DoomGeneric porting functions..
-int DG_Init(void) {
+void DG_Init(void) {
+	// nothing to do yet..
+	mp_printf(&mp_plat_print, "DG_Init\n");
+}
+
+void DG_DrawFrame(void) {
+	mp_printf(&mp_plat_print, "DG_DrawFrame\n");
+	// blit DG_ScreenBuffer - by calling back to python(!)
+#if DOOMGENERIC_RESY!=150
+#error Cannot use resolutions other than 240x135 for TiDAL badge, soz!
+#endif
+	mp_obj_t args[2] = {
+		mp_obj_new_str("blit", 4),
+		mp_obj_new_bytearray_by_ref(DOOMGENERIC_RESX*(DOOMGENERIC_RESY-15)*2, DG_ScreenBuffer),
+	};
+	mp_call_function_n_kw(s_callback, 2, 0, &args[0]);
+}
+
+void DG_SleepMs(uint32_t ms) {
+	mp_printf(&mp_plat_print, "DG_SleepMs\n");
+	mp_obj_t args[2] = {
+		mp_obj_new_str("sleep", 5),
+		mp_obj_new_int(ms),
+	};
+	mp_call_function_n_kw(s_callback, 2, 0, &args[0]);
+}
+
+uint32_t DG_GetTicksMs(void) {
+	mp_printf(&mp_plat_print, "DG_GetTickMs\n");
+	mp_obj_t args[1] = {
+		mp_obj_new_str("ticks", 5),
+	};
+	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 2, 0, &args[0]));
+}
+
+int DG_GetKey(int *pressed, unsigned char *key) {
+	mp_printf(&mp_plat_print, "DG_GetKey\n");
 	return 0;
 }
 
-int DG_DrawFrame(void) {
-	return 0;
-}
-
-int DG_SleepMs(int ms) {
-	return 0;
-}
-
-int DG_GetTicksMs(void) {
-	return 0;
-}
-
-int DG_GetKey(void) {
-	return 0;
-}
-
-int DG_SetWindowTitle(const char *title) {
-	return 0;
+void DG_SetWindowTitle(const char *title) {
+	mp_printf(&mp_plat_print, "DG_SetWindowTitle\n");
 }
 
 // == missing POSIX / libc functions..
@@ -162,11 +194,13 @@ int printf(const char *f, ...) {
 }
 
 int vprintf(const char *f, va_list ap) {
-	return mp_vprintf(&mp_plat_print, f, ap);
+	int r = mp_vprintf(&mp_plat_print, f, ap);
+	return r;
 }
 
 int puts(const char *s) {
-	return mp_printf(&mp_plat_print, "%s\n", s);
+	int r = mp_printf(&mp_plat_print, "%s\n", s);
+	return r;
 }
 
 int putchar(int c) {

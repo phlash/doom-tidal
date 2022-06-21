@@ -479,6 +479,26 @@ index 62d729d..8f4b3bc 100644
  } gamestate_t;
  
  typedef enum
+diff --git a/doomgeneric/doomgeneric.h b/doomgeneric/doomgeneric.h
+index c2dc4b5..5aea621 100644
+--- a/doomgeneric/doomgeneric.h
++++ b/doomgeneric/doomgeneric.h
+@@ -4,8 +4,13 @@
+ #include <stdlib.h>
+ #include <stdint.h>
+ 
+-#define DOOMGENERIC_RESX 640
+-#define DOOMGENERIC_RESY 400
++// We scale down to TiDAL screen size:
++// for X this is exactly 0.75, so interpolate 3 from 4
++// for Y this is 0.675 (27/40), so we hack by scaling
++// the same as X (0.75), which gives 150 lines, then drop
++// last 15 lines during blit
++#define DOOMGENERIC_RESX 240
++#define DOOMGENERIC_RESY 150
+ 
+ 
+ extern uint32_t* DG_ScreenBuffer;
 diff --git a/doomgeneric/doomstat.c b/doomgeneric/doomstat.c
 index ed4c6cc..78fe6bb 100644
 --- a/doomgeneric/doomstat.c
@@ -1123,7 +1143,7 @@ index 755aec3..a1b27ec 100644
  }
  
 diff --git a/doomgeneric/i_scale.c b/doomgeneric/i_scale.c
-index f88c694..c705082 100644
+index f88c694..1accd75 100644
 --- a/doomgeneric/i_scale.c
 +++ b/doomgeneric/i_scale.c
 @@ -49,11 +49,11 @@ static int dest_pitch;
@@ -1294,6 +1314,119 @@ index f88c694..c705082 100644
      SCREENWIDTH_4_3 * 5, SCREENHEIGHT * 5,
      I_InitStretchTables,
      I_Squash5x,
+@@ -1450,3 +1448,96 @@ screen_mode_t mode_squash_5x = {
+ };
+ 
+ 
++//
++// 0.75x squashed (240x150)
++// 
++static inline void WriteSquashedBlendedLine075x(byte *dest, byte *src1, byte *src2, byte *line_table, boolean rev)
++{
++    int x;
++    for (x=0; x<SCREENWIDTH; x+=4) {
++        // both lines: blend first pixel 60/40 with next
++        byte p1 = stretch_tables[1][*(src1+1) * 256 + *src1];
++        byte p2 = stretch_tables[1][*(src2+1) * 256 + *src2];
++        // now blend a pixel across lines
++        *dest = rev ? line_table[p2 * 256 + p1] : line_table[p1 * 256 + p2];
++        src1++;
++        src2++;
++        dest++;
++        // again, but 50/50 blend in X
++        p1 = half_stretch_table[*(src1+1) * 256 + *src1];
++        p2 = half_stretch_table[*(src2+1) * 256 + *src2];
++        *dest = rev ? line_table[p2 * 256 + p1] : line_table[p1 * 256 + p2];
++        src1++;
++        src2++;
++        dest++;
++        // one more time, 40/60 blend in X
++        p1 = stretch_tables[1][*src1 * 256 + *(src1+1)];
++        p2 = stretch_tables[1][*src2 * 256 + *(src2+1)];
++        *dest = rev ? line_table[p2 * 256 + p1] : line_table[p1 * 256 + p2];
++        src1 += 2;
++        src2 += 2;
++        dest++;
++    }
++}
++
++static boolean I_Squash075x(int x1, int y1, int x2, int y2)
++{
++    int y;
++    byte *dest = dest_buffer;
++    byte *src1 = src_buffer;
++    byte *src2 = src_buffer + SCREENWIDTH;
++    // full screen scale only
++    if (x1!=0 || y1!=0 || x2!=SCREENWIDTH || y2!=SCREENHEIGHT) {
++        return false;
++    }
++    for (y=0; y<SCREENHEIGHT; y+=4) {
++        // write three squished & blended lines for each four in source
++        // blended 60/40, then 50/50, then 40/60 between lines
++        WriteSquashedBlendedLine075x(dest, src1, src2, stretch_tables[1], true);
++        src1 += SCREENWIDTH;
++        src2 += SCREENWIDTH;
++        dest += dest_pitch;
++        WriteSquashedBlendedLine075x(dest, src1, src2, half_stretch_table, false);
++        src1 += SCREENWIDTH;
++        src2 += SCREENWIDTH;
++        dest += dest_pitch;
++        WriteSquashedBlendedLine075x(dest, src1, src2, stretch_tables[1], false);
++        src1 += SCREENWIDTH*2;
++        src2 += SCREENWIDTH*2;
++        dest += dest_pitch;
++    }
++    return true;
++}
++
++static void I_InitSquash075Tables(byte *palette)
++{
++    I_InitStretchTables(palette);
++    I_InitSquashTable(palette);
++}
++
++const screen_mode_t mode_squash_075x = {
++    (SCREENWIDTH * 3) / 4, (SCREENHEIGHT * 3) / 4,
++    I_InitSquash075Tables,
++    I_Squash075x,
++    true,
++};
++
++const screen_mode_t *const all_modes[] = {
++    &mode_scale_1x,
++    &mode_scale_2x,
++    &mode_scale_3x,
++    &mode_scale_4x,
++    &mode_scale_5x,
++    &mode_stretch_1x,
++    &mode_stretch_2x,
++    &mode_stretch_3x,
++    &mode_stretch_4x,
++    &mode_stretch_5x,
++    &mode_squash_1x,
++    &mode_squash_2x,
++    &mode_squash_3x,
++    &mode_squash_4x,
++    &mode_squash_5x,
++    &mode_squash_075x,
++    NULL
++};
+\ No newline at end of file
+diff --git a/doomgeneric/i_scale.h b/doomgeneric/i_scale.h
+index 48231f5..5dc02b3 100644
+--- a/doomgeneric/i_scale.h
++++ b/doomgeneric/i_scale.h
+@@ -49,5 +49,10 @@ extern screen_mode_t mode_squash_3x;
+ extern screen_mode_t mode_squash_4x;
+ extern screen_mode_t mode_squash_5x;
+ 
++// Utterly squashed modes (240x150 -> x0.75)
++extern screen_mode_t mode_squash_075x;
++
++extern screen_mode_t *all_modes[];
++
+ #endif /* #ifndef __I_SCALE__ */
+ 
 diff --git a/doomgeneric/i_sound.c b/doomgeneric/i_sound.c
 index 71947d2..65ede18 100644
 --- a/doomgeneric/i_sound.c
@@ -1461,7 +1594,7 @@ index 5d00091..f1f1876 100644
  
          //!
 diff --git a/doomgeneric/i_video.c b/doomgeneric/i_video.c
-index bf63035..9ddc87b 100644
+index bf63035..ff3e1ec 100644
 --- a/doomgeneric/i_video.c
 +++ b/doomgeneric/i_video.c
 @@ -22,8 +22,10 @@
@@ -1475,18 +1608,58 @@ index bf63035..9ddc87b 100644
  
  #include "config.h"
  #include "v_video.h"
-@@ -72,8 +74,8 @@ struct FB_ScreenInfo
+@@ -31,7 +33,9 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
+ #include "d_event.h"
+ #include "d_main.h"
+ #include "i_video.h"
++#include "i_scale.h"
+ #include "z_zone.h"
++#include "w_wad.h"
+ 
+ #include "tables.h"
+ #include "doomkeys.h"
+@@ -48,7 +52,7 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
+ #include <sys/types.h>
+ 
+ //#define CMAP256
+-
++#ifdef FBDOOM
+ struct FB_BitField
+ {
+ 	uint32_t offset;			/* beginning of bitfield	*/
+@@ -72,23 +76,20 @@ struct FB_ScreenInfo
  };
  
  static struct FB_ScreenInfo s_Fb;
 -int fb_scaling = 1;
 -int usemouse = 0;
 +int fb_scaling;
+ 
+-struct color {
+-    uint32_t b:8;
+-    uint32_t g:8;
+-    uint32_t r:8;
+-    uint32_t a:8;
+-};
++#else
++static byte *scaled_video;
++static int scaler_idx;
++#endif
+ 
+-static struct color colors[256];
 +int usemouse;
  
- struct color {
-     uint32_t b:8;
-@@ -108,12 +110,12 @@ boolean screenvisible;
+ void I_GetEvent(void);
+ 
+-// The screen buffer; this is modified to draw things to the screen
++// The screen buffer(s); this is modified to draw things to the screen
+ 
+-byte *I_VideoBuffer = NULL;
++byte *I_VideoBuffer;
+ 
+ // If true, game is running as a screensaver
+ 
+@@ -108,12 +109,12 @@ boolean screenvisible;
  // the values exceed the value of mouse_threshold, they are multiplied
  // by mouse_acceleration to increase the speed.
  
@@ -1502,7 +1675,50 @@ index bf63035..9ddc87b 100644
  
  typedef struct
  {
-@@ -177,6 +179,10 @@ void cmap_to_fb(uint8_t * out, uint8_t * in, int in_pixels)
+@@ -122,31 +123,21 @@ typedef struct
+ 	byte b;
+ } col_t;
+ 
++struct color {
++    uint32_t b:8;
++    uint32_t g:8;
++    uint32_t r:8;
++    uint32_t a:8;
++};
++// ARGB palette
++static struct color colors[256];
++
+ // Palette converted to RGB565
+ 
+ static uint16_t rgb565_palette[256];
+ 
+-void cmap_to_rgb565(uint16_t * out, uint8_t * in, int in_pixels)
+-{
+-    int i, j;
+-    struct color c;
+-    uint16_t r, g, b;
+-
+-    for (i = 0; i < in_pixels; i++)
+-    {
+-        c = colors[*in]; 
+-        r = ((uint16_t)(c.r >> 3)) << 11;
+-        g = ((uint16_t)(c.g >> 2)) << 5;
+-        b = ((uint16_t)(c.b >> 3)) << 0;
+-        *out = (r | g | b);
+-
+-        in++;
+-        for (j = 0; j < fb_scaling; j++) {
+-            out++;
+-        }
+-    }
+-}
+-
++// framebuffer style graphics output..
++#ifdef FBDOOM
+ void cmap_to_fb(uint8_t * out, uint8_t * in, int in_pixels)
+ {
+     int i, j, k;
+@@ -177,6 +168,10 @@ void cmap_to_fb(uint8_t * out, uint8_t * in, int in_pixels)
  void I_InitGraphics (void)
  {
      int i;
@@ -1513,7 +1729,7 @@ index bf63035..9ddc87b 100644
  
  	memset(&s_Fb, 0, sizeof(struct FB_ScreenInfo));
  	s_Fb.xres = DOOMGENERIC_RESX;
-@@ -196,13 +202,13 @@ void I_InitGraphics (void)
+@@ -196,13 +191,13 @@ void I_InitGraphics (void)
  	s_Fb.transp.offset = 24;
  	
  
@@ -1530,7 +1746,33 @@ index bf63035..9ddc87b 100644
  
  
      i = M_CheckParmWithArgs("-scaling", 1);
-@@ -253,14 +259,14 @@ void I_UpdateNoBlit (void)
+@@ -227,40 +222,17 @@ void I_InitGraphics (void)
+     I_InitInput();
+ }
+ 
+-void I_ShutdownGraphics (void)
+-{
+-	Z_Free (I_VideoBuffer);
+-}
+-
+-void I_StartFrame (void)
+-{
+-
+-}
+-
+-void I_StartTic (void)
+-{
+-	I_GetEvent();
+-}
+-
+-void I_UpdateNoBlit (void)
+-{
+-}
+-
+-//
+-// I_FinishUpdate
+-//
+-
  void I_FinishUpdate (void)
  {
      int y;
@@ -1547,6 +1789,138 @@ index bf63035..9ddc87b 100644
      x_offset     = (((s_Fb.xres - (SCREENWIDTH  * fb_scaling)) * s_Fb.bits_per_pixel/8)) / 2; // XXX: siglent FB hack: /4 instead of /2, since it seems to handle the resolution in a funny way
      //x_offset     = 0;
      x_offset_end = ((s_Fb.xres - (SCREENWIDTH  * fb_scaling)) * s_Fb.bits_per_pixel/8) - x_offset;
+@@ -294,6 +266,88 @@ void I_FinishUpdate (void)
+ 	DG_DrawFrame();
+ }
+ 
++// TiDAL badge graphics
++#else
++void cmap_to_rgb565(uint16_t * out, uint8_t * in, int in_pixels)
++{
++    int i;
++
++    for (i = 0; i < in_pixels; i++)
++    {
++        *out++ = rgb565_palette[*in];
++    }
++}
++
++void I_InitGraphics()
++{
++    mouse_acceleration = 2.0;
++    mouse_threshold = 10;
++    int idx;
++    // find a screen mode that matches..
++    printf("I_InitGraphics: looking for a screen mode to match %dx%d\n", DOOMGENERIC_RESX, DOOMGENERIC_RESY);
++    for (idx=0; all_modes[idx]; idx++) {
++        printf("\tmode %dx%d..\n", all_modes[idx]->width, all_modes[idx]->height);
++        if (DOOMGENERIC_RESX == all_modes[idx]->width && DOOMGENERIC_RESY == all_modes[idx]->height)
++            break;
++    }
++    if (!all_modes[idx]) {
++        printf("I_InitGraphics: FATAL - no mode found\n");
++        exit(0);
++    }
++    printf("I_InitGraphics: using %dx%d\n", all_modes[idx]->width, all_modes[idx]->height);
++    scaler_idx = idx;
++
++	I_VideoBuffer = (byte*)Z_Malloc (SCREENWIDTH * SCREENHEIGHT, PU_STATIC, NULL);  // For DOOM to draw on
++    scaled_video = (byte*)Z_Malloc (DOOMGENERIC_RESX * DOOMGENERIC_RESY, PU_STATIC, NULL);
++	screenvisible = true;
++
++    I_InitScale(I_VideoBuffer, scaled_video, DOOMGENERIC_RESX);
++    if (all_modes[scaler_idx]->InitMode)
++        all_modes[scaler_idx]->InitMode(W_CacheLumpName ("PLAYPAL",PU_CACHE));
++
++    extern int I_InitInput(void);
++    I_InitInput();
++}
++
++void I_FinishUpdate(void)
++{
++    // scale, then translate to RGB565
++    int y;
++    byte *in;
++    uint16_t *out;
++    all_modes[scaler_idx]->DrawScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
++    for (y=0, in=scaled_video, out=(uint16_t *)DG_ScreenBuffer; y<DOOMGENERIC_RESY; y++) {
++        //cmap_to_rgb565(out, in, DOOMGENERIC_RESX);
++        int x;
++        for (x=0; x<DOOMGENERIC_RESX; x++) {
++            out[x] = rgb565_palette[in[x]];
++        }
++        in += DOOMGENERIC_RESX;
++        out += DOOMGENERIC_RESX;
++    }
++    DG_DrawFrame();
++}
++#endif
++
++void I_ShutdownGraphics (void)
++{
++	Z_Free (I_VideoBuffer);
++}
++
++void I_StartFrame (void)
++{
++
++}
++
++void I_StartTic (void)
++{
++	I_GetEvent();
++}
++
++void I_UpdateNoBlit (void)
++{
++}
++
+ //
+ // I_ReadScreen
+ //
+@@ -313,29 +367,26 @@ void I_ReadScreen (byte* scr)
+ void I_SetPalette (byte* palette)
+ {
+ 	int i;
+-	//col_t* c;
+-
+-	//for (i = 0; i < 256; i++)
+-	//{
+-	//	c = (col_t*)palette;
++	col_t* c;
+ 
+-	//	rgb565_palette[i] = GFX_RGB565(gammatable[usegamma][c->r],
+-	//								   gammatable[usegamma][c->g],
+-	//								   gammatable[usegamma][c->b]);
++    // set both RGB565 and ARGB palettes
++    printf("I_SetPalette..\n");
++	for (i = 0; i < 256; i++)
++	{
++		c = (col_t*)palette;
+ 
+-	//	palette += 3;
+-	//}
+-    
++		rgb565_palette[i] = GFX_RGB565(gammatable[usegamma][c->r],
++									   gammatable[usegamma][c->g],
++									   gammatable[usegamma][c->b]);
+ 
+-    /* performance boost:
+-     * map to the right pixel format over here! */
+-
+-    for (i=0; i<256; ++i ) {
+         colors[i].a = 0;
+         colors[i].r = gammatable[usegamma][*palette++];
+         colors[i].g = gammatable[usegamma][*palette++];
+         colors[i].b = gammatable[usegamma][*palette++];
+-    }
++	}
++
++    // update tables in scaler
++    I_ResetScaleTables(palette);
+ }
+ 
+ // Given an RGB value, find the closest matching palette index.
 diff --git a/doomgeneric/i_video.h b/doomgeneric/i_video.h
 index 3c7db19..b317229 100644
 --- a/doomgeneric/i_video.h
