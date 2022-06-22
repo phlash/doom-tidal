@@ -71,3 +71,6 @@ Debugging is by resetting the badge, then connecting your favourite serial
 terminal program (I like `minicom`) to the TiDAL badge REPL, before selecting
 `Doom` app on the badge screen...
 
+## How's it going?
+
+There is now a [progress blog](https://github.com/phlash/doom-tidal/discussions/2)
