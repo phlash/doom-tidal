@@ -15,11 +15,18 @@ class Doom(TextApp):
         display.rotation(1)
         self.window.println("Hi Mum!")
         chdir("/apps/Doom")
-        doomgeneric.doom(self)
+        return doomgeneric.doom(self)
+        # blit test - comment line above :)
+        fr = 100
+        st = ticks_ms()
+        doomgeneric.d_blittest(self, 100)
+        en = ticks_ms()
+        fps = (1000.0*fr)/(en-st)
+        print(f"fps: {fps} upcalls: {self.upcalls}")
 
     def __call__(self, op, arg1=None, arg2=None, arg3=None, arg4=None):
         self.upcalls += 1
-        print(f"Doom.callback[{self.upcalls}]({op},{arg1},{arg2},{arg3},{arg4})")
+        #print(f"Doom.callback[{self.upcalls}]({op},{arg1},{arg2},{arg3},{arg4})")
         #sleep_ms(1000)
         if "blit" == op:        # first check for speed!
             return display.blit_buffer(arg1, 0, 0, 240, 135)

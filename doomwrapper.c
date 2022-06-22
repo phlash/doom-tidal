@@ -31,7 +31,7 @@ void D_DoomMain (void);
 void M_FindResponseFile(void);
 
 // == Our one exported function for uPython to run doom..
-STATIC mp_obj_t s_callback;
+mp_obj_t dw_callback;
 STATIC mp_obj_t doom(mp_obj_t callback)
 {
     // fake arguments
@@ -40,9 +40,9 @@ STATIC mp_obj_t doom(mp_obj_t callback)
     myargv = argv;
 
 	// save callback for library functions below..
-	s_callback = callback;
+	dw_callback = callback;
 
-	// not sure: PAA?
+	// locate and process arguments from '@' file (if any)
     M_FindResponseFile();
 
     // start doom
@@ -51,28 +51,40 @@ STATIC mp_obj_t doom(mp_obj_t callback)
 	D_DoomMain ();
 
 	// clear callback
-	s_callback = 0;
+	dw_callback = 0;
 
     return mp_obj_new_int(0);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(doom_obj, doom);
 
-STATIC mp_obj_t d_memset(mp_obj_t bobj, mp_obj_t iobj)
+STATIC mp_obj_t d_blittest(mp_obj_t callback, mp_obj_t cobj)
 {
-	// this uses the buffer protocol to gain access to raw buffer for memset()
-	mp_buffer_info_t binf;
-	mp_get_buffer_raise(bobj, &binf, MP_BUFFER_WRITE);
-	mp_fun_table.memset_(binf.buf, mp_obj_get_int(iobj), binf.len);
-	return bobj;
+	size_t blitlen = DOOMGENERIC_RESX*(DOOMGENERIC_RESY-15)*2;
+	uint16_t *blitbuf = malloc(blitlen);
+	dw_callback = callback;
+	int col = 0;
+	int cnt = mp_obj_get_int(cobj);
+	while (col<cnt) {
+		mp_obj_t args[2] = {
+			mp_obj_new_str("blit", 4),
+			mp_obj_new_bytearray_by_ref(blitlen, blitbuf),
+		};
+		mp_fun_table.memset_(blitbuf, col, blitlen);
+		mp_call_function_n_kw(dw_callback, 2, 0, &args[0]);
+		col++;
+	}
+	dw_callback = 0;
+	free(blitbuf);
+	return mp_obj_new_int(0);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(d_memset_obj, d_memset);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(d_blittest_obj, d_blittest);
 
 // == Entry point
 mp_obj_t mpy_init(mp_obj_fun_bc_t *self, size_t n_args, size_t n_kw, mp_obj_t *args)
 {
 	MP_DYNRUNTIME_INIT_ENTRY;
 	mp_store_global(MP_QSTR_doom, MP_OBJ_FROM_PTR(&doom_obj));
-	mp_store_global(MP_QSTR_d_memset, MP_OBJ_FROM_PTR(&d_memset_obj));
+	mp_store_global(MP_QSTR_d_blittest, MP_OBJ_FROM_PTR(&d_blittest_obj));
 	MP_DYNRUNTIME_INIT_EXIT;
 }
 
@@ -83,7 +95,6 @@ void DG_Init(void) {
 }
 
 void DG_DrawFrame(void) {
-	mp_printf(&mp_plat_print, "DG_DrawFrame\n");
 	// blit DG_ScreenBuffer - by calling back to python(!)
 #if DOOMGENERIC_RESY!=150
 #error Cannot use resolutions other than 240x135 for TiDAL badge, soz!
@@ -92,28 +103,25 @@ void DG_DrawFrame(void) {
 		mp_obj_new_str("blit", 4),
 		mp_obj_new_bytearray_by_ref(DOOMGENERIC_RESX*(DOOMGENERIC_RESY-15)*2, DG_ScreenBuffer),
 	};
-	mp_call_function_n_kw(s_callback, 2, 0, &args[0]);
+	mp_call_function_n_kw(dw_callback, 2, 0, &args[0]);
 }
 
 void DG_SleepMs(uint32_t ms) {
-	mp_printf(&mp_plat_print, "DG_SleepMs\n");
 	mp_obj_t args[2] = {
 		mp_obj_new_str("sleep", 5),
 		mp_obj_new_int(ms),
 	};
-	mp_call_function_n_kw(s_callback, 2, 0, &args[0]);
+	mp_call_function_n_kw(dw_callback, 2, 0, &args[0]);
 }
 
 uint32_t DG_GetTicksMs(void) {
-	mp_printf(&mp_plat_print, "DG_GetTickMs\n");
 	mp_obj_t args[1] = {
 		mp_obj_new_str("ticks", 5),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 2, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
 }
 
 int DG_GetKey(int *pressed, unsigned char *key) {
-	mp_printf(&mp_plat_print, "DG_GetKey\n");
 	return 0;
 }
 
@@ -123,9 +131,9 @@ void DG_SetWindowTitle(const char *title) {
 
 // == missing POSIX / libc functions..
 
-static int dg_errno;
+int dw_errno;
 int *__errno(void) {
-	return &dg_errno;
+	return &dw_errno;
 }
 
 #include <ctype.h>
@@ -266,6 +274,7 @@ double atof(const char *s) {
 
 int sscanf(const char *s, const char *f, ...) {
 	// TODO:PAA - uPython doesn't give us any route to the real scanf :-(
+	printf("sscanf(%s, ...) = -1 :(\n", f);
 	return -1;
 }
 
@@ -418,7 +427,7 @@ FILE *fopen(const char *name, const char *mode) {
 	FILE *stream = m_malloc(sizeof(FILE));
 	if (!stream)
 		return NULL;
-	stream->pyfile = mp_call_function_n_kw(s_callback, 3, 0, &args[0]);
+	stream->pyfile = mp_call_function_n_kw(dw_callback, 3, 0, &args[0]);
 	return stream;
 }
 
@@ -427,7 +436,7 @@ int fclose(FILE *stream) {
 		mp_obj_new_str("fclose", 6),
 		stream->pyfile,
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 2, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
 }
 
 long ftell(FILE *stream) {
@@ -435,7 +444,7 @@ long ftell(FILE *stream) {
 		mp_obj_new_str("ftell", 5),
 		stream->pyfile,
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 2, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
 }
 
 int fseek(FILE *stream, long o, int w) {
@@ -445,7 +454,7 @@ int fseek(FILE *stream, long o, int w) {
 		mp_obj_new_int(o),
 		mp_obj_new_int(w),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 4, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 4, 0, &args[0]));
 }
 
 size_t fwrite(const void *buf, size_t sz, size_t num, FILE *stream) {
@@ -454,7 +463,7 @@ size_t fwrite(const void *buf, size_t sz, size_t num, FILE *stream) {
 		mp_obj_new_bytearray_by_ref(sz*num, (void *)buf),
 		stream->pyfile,
 	};
-	int wr = mp_obj_get_int(mp_call_function_n_kw(s_callback, 3, 0, &args[0]));
+	int wr = mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
 	return wr/sz;
 }
 
@@ -464,7 +473,7 @@ size_t fread(void *buf, size_t sz, size_t num, FILE *stream) {
 		mp_obj_new_bytearray_by_ref(sz*num, buf),
 		stream->pyfile,
 	};
-	int rd = mp_obj_get_int(mp_call_function_n_kw(s_callback, 3, 0, &args[0]));
+	int rd = mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
 	return rd/sz;
 }
 
@@ -496,7 +505,7 @@ int remove(const char *path) {
 		mp_obj_new_str("remove", 6),
 		mp_obj_new_str(path, strlen(path)),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 2, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
 }
 
 int rename(const char *old, const char *new) {
@@ -505,7 +514,7 @@ int rename(const char *old, const char *new) {
 		mp_obj_new_str(old, strlen(old)),
 		mp_obj_new_str(new, strlen(new)),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 3, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
 }
 
 int mkdir(const char *path, int mode) {
@@ -514,6 +523,6 @@ int mkdir(const char *path, int mode) {
 		mp_obj_new_str(path, strlen(path)),
 		mp_obj_new_int(mode),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(s_callback, 3, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
 }
 
