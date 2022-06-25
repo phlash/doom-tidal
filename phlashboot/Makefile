@@ -5,11 +5,12 @@ $(error You must define the location of the Xtensa esp32s3 gcc tools, eg: make C
 endif
 CC=$(COMPILER)/bin/xtensa-esp32s3-elf-gcc
 
-# .text & .data/.bss reside in SRAM (these values are used by ESP-IDF 2nd stage loader)
-# we explicitly put .rodata in RW memory as that's required to support reads other than 32-bit wide :(
-TEXTBASE=0x403B0000
-ROBASE=  0x3FC90000
-DATABASE=0x3FCD0000
+# .text & .data/.bss reside in SRAM (these values are at the lowest SRAM addresses, to avoid bootloader)
+# NB: IRAM addresses are /aliases/ of DRAM (+0x6F0000), so you can have overlaps.. beware!
+# NB: we explicitly put .rodata in DRAM (R/W) as that's required to support reads other than 32-bit wide :(
+TEXTBASE=0x40378000
+ROBASE=  0x3FC89000		# 4k (1 page) above TEXTBASE
+DATABASE=0x3FC8A000		# 4k (1 page) above RODATA
 # start here
 ENTRYSYM=entry
 # ROM symbol addresses...
