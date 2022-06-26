@@ -5,6 +5,14 @@ $(error You must define the location of the Xtensa esp32s3 gcc tools, eg: make C
 endif
 CC=$(COMPILER)/bin/xtensa-esp32s3-elf-gcc
 
+PYTHON=python3
+
+# the badge serial port in USB Jtag/serial mode
+PORT=/dev/ttyACM0
+
+# the flash address to write into, this is ota_0 slot (default boot target)
+OTA=0x10000
+
 # .text & .data/.bss reside in SRAM (these values are at the lowest SRAM addresses, to avoid bootloader)
 # NB: IRAM addresses are /aliases/ of DRAM (+0x6F0000), so you can have overlaps.. beware!
 # NB: we explicitly put .rodata in DRAM (R/W) as that's required to support reads other than 32-bit wide :(
@@ -24,13 +32,16 @@ all: $(BUILD) $(BUILD)/phlashboot.bin
 clean:
 	rm -rf $(BUILD)
 
+install: all
+	$(PYTHON) $(BUILD)/esptool.py --chip esp32s3 --port $(PORT) write_flash $(OTA) $(BUILD)/phlashboot.bin
+
 .PHONY: clean
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
 $(BUILD)/phlashboot.bin: $(BUILD)/phlashboot.elf $(BUILD)/esptool.py
-	python3 $(BUILD)/esptool.py --chip esp32s3 elf2image --flash_freq 80m --flash_mode dio --flash_size 8MB --output $@ $<
+	$(PYTHON) $(BUILD)/esptool.py --chip esp32s3 elf2image --flash_freq 80m --flash_mode dio --flash_size 8MB --output $@ $<
 	
 $(BUILD)/phlashboot.elf: $(BUILD)/phlashboot.o
 	$(CC) \
