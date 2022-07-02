@@ -1,3 +1,5 @@
+// TODO: actually write a loader that tinkers with MMU, allocates huge ram block and calls
+// mapped binary..
 #include <py/dynruntime.h>
 
 // @see <esp-idf>/components/soc/include/esp32s3/soc/cache_memory.h
