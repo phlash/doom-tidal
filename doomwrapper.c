@@ -1,6 +1,3 @@
-//
-// Copyright(C) 1993-1996 Id Software, Inc.
-// Copyright(C) 2005-2014 Simon Howard
 // Copyright(C) 2022- Phil Ashby
 //
 // This program is free software; you can redistribute it and/or
@@ -19,7 +16,12 @@
 //	missing POSIX / libc functions expected by doomgeneric..
 //
 
-#include "py/dynruntime.h"
+// we include the structure definition for mp_fun_table_t but NOT
+// the declaration of an instance of it (in py/dynruntime.h) or the
+// inline functions & macros that rely on the instance. This allows
+// the use of a pointer passed in from the true module (doomloader.c)
+// and avoids linker issues or a need for special compiler options
+#include "py/nativeglue.h"
 // fugly hack to prevent collision of stdbool types and doom internals
 #undef true
 #undef false
@@ -30,9 +32,27 @@ void D_DoomMain (void);
 
 void M_FindResponseFile(void);
 
-// == Our one exported function for uPython to run doom..
-mp_obj_t dw_callback;
-STATIC mp_obj_t doom(mp_obj_t callback)
+
+// == uPython callback object (an instance of the loader module)
+static mp_obj_t dw_callback;
+// == dynamic pointer to uPython module API helper functions
+//    plus some macros to keep code tidy (derived from dynruntime.h)
+static mp_fun_table_t *dw_fun_table;
+#define mp_plat_print						(*dw_fun_table->plat_print)
+#define mp_printf(p, ...)					(dw_fun_table->printf_((p), __VA_ARGS__))
+#define mp_vprintf(p, f, a)					(dw_fun_table->printf_((p), (f), (a)))
+#define mp_obj_new_str(s, l)				(dw_fun_table->obj_new_str((s), (l)))
+#define mp_obj_new_int(n)					(dw_fun_table->native_to_obj((n), MP_NATIVE_TYPE_INT))
+#define mp_obj_new_bytearray_by_ref(p, l)	(dw_fun_table->obj_new_bytearray_by_ref((p), (l)))
+#define mp_call_function_n_kw(f, na, nk, a)	(dw_fun_table->call_function_n_kw((f), (na)|((nk)<<8), (a)))
+#define mp_obj_get_int(o)					(dw_fun_table->native_from_obj((o), MP_NATIVE_TYPE_INT))
+
+#define m_malloc(s)							(dw_fun_table->realloc_(NULL, (s), false))
+#define m_free(p)							(dw_fun_table->realloc_((p), 0, false))
+#define m_realloc(p, s)						(dw_fun_table->realloc_((p), (s), true))
+
+// == Our entry point, called by the loader
+void run_doom(mp_obj_t callback, mp_fun_table_t *fun_table)
 {
     // fake arguments
 	char *argv[] = { "doom", NULL };
@@ -42,6 +62,9 @@ STATIC mp_obj_t doom(mp_obj_t callback)
 	// save callback for library functions below..
 	dw_callback = callback;
 
+	// save function table for functions below..
+	dw_fun_table = fun_table;
+
 	// locate and process arguments from '@' file (if any)
     M_FindResponseFile();
 
@@ -50,43 +73,11 @@ STATIC mp_obj_t doom(mp_obj_t callback)
     
 	D_DoomMain ();
 
-	// clear callback
+	// clear callback & function table
 	dw_callback = 0;
-
-    return mp_obj_new_int(0);
+	dw_fun_table = NULL;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(doom_obj, doom);
 
-STATIC mp_obj_t d_blittest(mp_obj_t callback, mp_obj_t cobj)
-{
-	size_t blitlen = DOOMGENERIC_RESX*(DOOMGENERIC_RESY-15)*2;
-	uint16_t *blitbuf = malloc(blitlen);
-	dw_callback = callback;
-	int col = 0;
-	int cnt = mp_obj_get_int(cobj);
-	while (col<cnt) {
-		mp_obj_t args[2] = {
-			mp_obj_new_str("blit", 4),
-			mp_obj_new_bytearray_by_ref(blitlen, blitbuf),
-		};
-		mp_fun_table.memset_(blitbuf, col, blitlen);
-		mp_call_function_n_kw(dw_callback, 2, 0, &args[0]);
-		col++;
-	}
-	dw_callback = 0;
-	free(blitbuf);
-	return mp_obj_new_int(0);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(d_blittest_obj, d_blittest);
-
-// == Entry point
-mp_obj_t mpy_init(mp_obj_fun_bc_t *self, size_t n_args, size_t n_kw, mp_obj_t *args)
-{
-	MP_DYNRUNTIME_INIT_ENTRY;
-	mp_store_global(MP_QSTR_doom, MP_OBJ_FROM_PTR(&doom_obj));
-	mp_store_global(MP_QSTR_d_blittest, MP_OBJ_FROM_PTR(&d_blittest_obj));
-	MP_DYNRUNTIME_INIT_EXIT;
-}
 
 // == DoomGeneric porting functions..
 void DG_Init(void) {
@@ -279,7 +270,7 @@ int sscanf(const char *s, const char *f, ...) {
 }
 
 void *memset(void *s, int c, size_t n) {
-	return mp_fun_table.memset_(s, c, n);
+	return dw_fun_table->memset_(s, c, n);
 }
 
 void *malloc(size_t l) {
@@ -302,7 +293,7 @@ void free(void *p) {
 }
 
 void *memmove(void *d, const void *s, size_t n) {
-	return mp_fun_table.memmove_(d, s, n);
+	return dw_fun_table->memmove_(d, s, n);
 }
 
 void *memcpy(void *d, const void *s, size_t n) {

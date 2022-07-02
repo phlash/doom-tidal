@@ -1,0 +1,106 @@
+# Memory map of uPython once loaded..
+
+ESP32S3 memory regions (<esp-idf>/components/soc/esp32s3/include/soc/[soc.h,cache_memory.h]):
+	0x0000-0000 -> 0x3C00-0000				# reserved
+	0x3C00-0000 -> 0x3E00-0000				# DBus MMU virtual address space (32MiB):	unpopulated until MMU config
+	0x3E00-0000 -> 0x3FC8-0000				# reserved
+	0x3FC8-0000 -> 0x3FC8-8000				# Dbus cache SRAM (32kiB)
+	0x3FC8-8000 -> 0x3FCF-0000				# Dbus -> SRAM address space (512-32-64kiB: 416kiB)
+	0x3FCF-0000 -> 0x3FD0-0000				# reserved (IBus cache alias)
+	0x3FD0-0000 -> 0x3FF0-0000				# reserved
+	0x3FF0-0000 -> 0x3FF2-0000				# DBus -> ESPROM access (/top/ 128kiB):	entropy: espdrom.raw.png
+	0x3FF2-0000 -> 0x4000-0000				# reserved
+
+	0x4000-0000 -> 0x4006-0000				# IBus -> ESPROM access (all 384kiB):		entropy: espirom.raw.png
+	0x4006-0000 -> 0x4037-0000				# reserved
+	0x4037-0000 -> 0x4037-8000				# reserved (DBus cache alias)
+	0x4037-8000 -> 0x403E-0000				# IBus -> SRAM address space (512-32-64kiB: 416kiB)
+	0x403E-0000 -> 0x403F-0000				# IBus cache SRAM (64kiB)
+	0x403F-0000 -> 0x4200-0000				# reserved
+	0x4200-0000 -> 0x4400-0000				# IBus MMU virtual address space (32MiB):	unpopulated until MMU config
+	0x4400-0000 -> 0x5000-0000				# reserved
+	0x5000-0000 -> 0x5000-2000				# RTC slow RAM (8kiB) DBus & IBus mapped
+	0x5000-2000 -> 0x6000-0000				# reserved
+	0x6000-0000 -> 0x600E-0000				# peripheral address space (896kiB) DBus & IBus mapped
+	0x600F-E000 -> 0x6010-0000				# RTC fast RAM (8kiB) DBus & IBus mapped
+	0x6010-0000 -> 0xFFFF-FFFF				# reserved
+
+	DBus MMU virtual space is split in two halves, possibly just by convention as there is a specific page bit
+	(MMU_ACCESS_SPIRAM) that indicates external RAM, rather than external ROM
+	0x3C00-0000 -> 0x3D00-0000				# DROM (external flash) access (16MiB)
+	0x3D00-0000 -> 0x3E00-0000				# SPIRAM access (16MiB)
+
+ESP32S3 MMU details (as above, plus mmu.h):
+	0x600C-5000 -> 0x600C-5800				# MMU IBus page table registers (one 32bit entry per page, 256 entries)
+	0x600C-5800 -> 0x600C-6000				# MMU DBus page table registers (one 32bit entry per page, 256 entries)
+
+	pages are 64kiB (0x10000) in size, thus 256 pages allows 16MiB to be mapped at any one time to either bus.
+	each page entry corresponds to a specific virtual address (space start + 0x10000*page)
+
+
+micropython.bin (from OTA_0 partition offset):
+	offset: 0x10000
+	chip: 233
+	segs: 7
+	ftype:2
+	fszsp:0x3f
+	entry: 0x403768bc
+	0: off=10020 load=3c110020 size=92240	# pages 0x1-0xa, should be DROM but mapped into IBus space?
+	1: off=a2268 load=3fc99020 size=3f80	# DRAM (.data + .bss)
+	2: off=a61f0 load=40374000 size=9e28	# IRAM (/overlaps/ DBus cache by 16kiB?) GOT + entry point?
+	3: off=b0020 load=42000020 size=1056c4	# pages 0xb-0x1b mapped into IROM, majority of code
+	4: off=1b56ec load=4037de28 size=b1f4	# IRAM (directly after segment 2) not sure why separated?
+	5: off=1c08e8 load=50000000 size=818	# RTC slow RAM (D+I) not sure why used
+	6: off=1c1108 load=600fe000 size=28		# RTC fast RAM (D+I) not sure why used
+
+
+annotated page table dump from running uPython:
+	0 <-- ibus --> 100 <-- dbus --> 200
+	0: b	# IBus mapping of main code to 0x4200-0000
+	1: c
+	2: d
+	3: e
+	4: f
+	5: 10
+	6: 11
+	7: 12
+	8: 13
+	9: 14
+	a: 15
+	b: 16
+	c: 17
+	d: 18
+	e: 19
+	f: 1a
+	10: 1b
+	11: 1	# weird IBus mapped data segment to 0x4211-0000 (should be 0x3C11-0000)
+	12: 2
+	13: 3
+	14: 4
+	15: 5
+	16: 6
+	17: 7
+	18: 8
+	19: 9
+	1a: a
+	1b: 4000
+	<...invalid [0x4000] until>
+	180: 8000	# PSRAM mapping (top bit set) to 0x3D80-0000 -> 0x3E00-0000
+	181: 8001
+	182: 8002
+	...
+	1fe: 807e
+	1ff: 807f
+
+
+So where to put DOOM?:
+	Looks like I have free IROM address space above 0x4220-0000 (page table entry 0x20+)
+	- so simply link with this as .text base address
+	DROM address space is all unused, so start at 0x3C00-0000?
+	- link with this as .rodata base address
+	DRAM is all occupied by uPython heap (if I'm reading the startup code right), so this
+	is my challenge - find a way to have relocatable .data & .bss that I can malloc()?
+	- or malloc() a huge blob that will always end up in PSRAM, and hope the address range
+	  covers where I chose to set .data base address (yuk!)
+	  This appears feasible - alloc 7MiB always ensure 0x3D90-0000 is within the returned
+	  memory address range.. loader can also check before dumping segment in there..
