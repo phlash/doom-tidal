@@ -405,27 +405,22 @@ char *strrchr(const char *s, int c) {
 }
 
 // File I/O is special, we need to call back into uPython to access the file system..
-// we also have our own FILE structure (and hope that doom doesn't monkey about in it!)
-typedef struct _fileio {
-	mp_obj_t pyfile;
-} FILE;
+// we also fake our own FILE structure (and hope that doom doesn't monkey about in it!)
+struct _fileio;
+typedef struct _fileio FILE;
 FILE *fopen(const char *name, const char *mode) {
 	mp_obj_t args[3] = {
 		 mp_obj_new_str("fopen", 5),
 		 mp_obj_new_str(name, strlen(name)),
 		 mp_obj_new_str(mode, strlen(mode)),
 	};
-	FILE *stream = m_malloc(sizeof(FILE));
-	if (!stream)
-		return NULL;
-	stream->pyfile = mp_call_function_n_kw(dw_callback, 3, 0, &args[0]);
-	return stream;
+	return MP_OBJ_TO_PTR(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
 }
 
 int fclose(FILE *stream) {
 	mp_obj_t args[2] = {
 		mp_obj_new_str("fclose", 6),
-		stream->pyfile,
+		MP_OBJ_FROM_PTR(stream),
 	};
 	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
 }
@@ -433,7 +428,7 @@ int fclose(FILE *stream) {
 long ftell(FILE *stream) {
 	mp_obj_t args[2] = {
 		mp_obj_new_str("ftell", 5),
-		stream->pyfile,
+		MP_OBJ_FROM_PTR(stream),
 	};
 	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
 }
@@ -441,7 +436,7 @@ long ftell(FILE *stream) {
 int fseek(FILE *stream, long o, int w) {
 	mp_obj_t args[4] = {
 		mp_obj_new_str("fseek", 5),
-		stream->pyfile,
+		MP_OBJ_FROM_PTR(stream),
 		mp_obj_new_int(o),
 		mp_obj_new_int(w),
 	};
@@ -452,7 +447,7 @@ size_t fwrite(const void *buf, size_t sz, size_t num, FILE *stream) {
 	mp_obj_t args[3] = {
 		mp_obj_new_str("fwrite", 6),
 		mp_obj_new_bytearray_by_ref(sz*num, (void *)buf),
-		stream->pyfile,
+		MP_OBJ_FROM_PTR(stream),
 	};
 	int wr = mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
 	return wr/sz;
@@ -462,7 +457,7 @@ size_t fread(void *buf, size_t sz, size_t num, FILE *stream) {
 	mp_obj_t args[3] = {
 		mp_obj_new_str("fread", 5),
 		mp_obj_new_bytearray_by_ref(sz*num, buf),
-		stream->pyfile,
+		MP_OBJ_FROM_PTR(stream),
 	};
 	int rd = mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
 	return rd/sz;
