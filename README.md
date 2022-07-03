@@ -29,8 +29,9 @@ A much better question:
    https://github.com/espressif/crosstool-NG/releases, specifically the
    esp32s3-elf-gcc11_2_0-esp-2022r1-&lt;your host technology here&gt;.tar.xz
  * Micropython repo (it's a submodule of this project) for final assembly
-   of compiled object code into `doomgeneric.mpy` loadable python module
- * Python3 plus `python3-pyelftools` (on my Debian system)
+   of compiled object code into `doomloader.mpy` loadable python module
+   and providing the uPython dynamic module API.
+ * Python3 plus `python3-pyelftools` package (on my Debian system)
  * A copy of an appropriate WAD file (search for DOOM1.WAD for demo game)
 
 ## Build 'n Debug
@@ -63,7 +64,8 @@ Installing the built module and wrapper python looks like this:
 <..or..>
 % micropython/tools/pyboard.py --no-soft-reset -f mkdir /apps/Doom
 % micropython/tools/pyboard.py --no-soft-reset -f cp wrapper/__init__.py :/apps/Doom/
-% micropython/tools/pyboard.py --no-soft-reset -f cp build/doomgeneric.mpy :/apps/Doom/
+% micropython/tools/pyboard.py --no-soft-reset -f cp build/doomloader.mpy :/apps/Doom/
+% micropython/tools/pyboard.py --no-soft-reset -f cp build/doom.bin :/apps/Doom/
 % micropython/tools/pyboard.py --no-soft-reset -f cp <path to .WAD file> :/apps/Doom/game.wad
 ```
 
