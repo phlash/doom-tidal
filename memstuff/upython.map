@@ -1,12 +1,12 @@
 # Memory map of uPython once loaded..
 
-ESP32S3 memory regions (<esp-idf>/components/soc/esp32s3/include/soc/[soc.h,cache_memory.h]),
+ESP32S3 address regions (<esp-idf>/components/soc/esp32s3/include/soc/[soc.h,cache_memory.h]),
 also 'esp32-s3_technical_reference_manual_en.pdf' (for cache in SRAM details):
 	0x0000-0000 -> 0x3C00-0000				# reserved
-	0x3C00-0000 -> 0x3E00-0000				# DBus MMU virtual address space (32MiB):	unpopulated until MMU config
+	0x3C00-0000 -> 0x3E00-0000				# DBus shared MMU virtual address space (32MiB):	unpopulated until MMU config
 	0x3E00-0000 -> 0x3FC8-0000				# reserved
 	0x3FC8-0000 -> 0x3FC8-8000				# reserved (DBus cache alias of IBus cache)
-	0x3FC8-8000 -> 0x3FCF-0000				# Dbus -> SRAM address space (512-32-64kiB: 416kiB)
+	0x3FC8-8000 -> 0x3FCF-0000				# Dbus -> shared SRAM address space (512-32-64kiB: 416kiB)
 	0x3FCF-0000 -> 0x3FD0-0000				# DBus cache SRAM (64kiB)
 	0x3FD0-0000 -> 0x3FF0-0000				# reserved
 	0x3FF0-0000 -> 0x3FF2-0000				# DBus -> ESPROM access (/top/ 128kiB):	entropy: espdrom.raw.png
@@ -15,10 +15,10 @@ also 'esp32-s3_technical_reference_manual_en.pdf' (for cache in SRAM details):
 	0x4000-0000 -> 0x4006-0000				# IBus -> ESPROM access (all 384kiB):		entropy: espirom.raw.png
 	0x4006-0000 -> 0x4037-0000				# reserved
 	0x4037-0000 -> 0x4037-8000				# Ibus cache SRAM (32kiB)
-	0x4037-8000 -> 0x403E-0000				# IBus -> SRAM address space (512-32-64kiB: 416kiB)
+	0x4037-8000 -> 0x403E-0000				# IBus -> shared SRAM address space (512-32-64kiB: 416kiB)
 	0x403E-0000 -> 0x403F-0000				# reserved (IBus cache alias of DBus cache)
 	0x403F-0000 -> 0x4200-0000				# reserved
-	0x4200-0000 -> 0x4400-0000				# IBus MMU virtual address space (32MiB):	unpopulated until MMU config
+	0x4200-0000 -> 0x4400-0000				# IBus shared MMU virtual address space (32MiB):	unpopulated until MMU config
 	0x4400-0000 -> 0x5000-0000				# reserved
 	0x5000-0000 -> 0x5000-2000				# RTC slow RAM (8kiB) DBus & IBus mapped
 	0x5000-2000 -> 0x6000-0000				# reserved
@@ -26,17 +26,15 @@ also 'esp32-s3_technical_reference_manual_en.pdf' (for cache in SRAM details):
 	0x600F-E000 -> 0x6010-0000				# RTC fast RAM (8kiB) DBus & IBus mapped
 	0x6010-0000 -> 0xFFFF-FFFF				# reserved
 
-	DBus MMU virtual space is split in two halves, possibly just by convention as there is a specific page bit
-	(MMU_ACCESS_SPIRAM) that indicates external RAM, rather than external ROM
-	0x3C00-0000 -> 0x3D00-0000				# DROM (external flash) access (16MiB)
-	0x3D00-0000 -> 0x3E00-0000				# SPIRAM access (16MiB)
+MMU page tables map external ROM/RAM pages into /both/ IBus and DBus address spaces (at the same offset)
+MMU page table entries have a specific bit (15, 0x8000) to map SPIRAM instead of flash ROM
+By convention, SPIRAM is mapped at the /top/ of the address space (0x3D800000-0x3E000000)
 
-ESP32S3 MMU details (as above, plus mmu.h):
-	0x600C-5000 -> 0x600C-5800				# MMU IBus page table registers (one 32bit entry per page, 256 entries)
-	0x600C-5800 -> 0x600C-6000				# MMU DBus page table registers (one 32bit entry per page, 256 entries)
+ESP32S3 MMU page table (as above, plus mmu.h):
+	0x600C-5000 -> 0x600C-5800				# MMU page table registers (one 32bit entry per page, 512 entries)
 
-	pages are 64kiB (0x10000) in size, thus 256 pages allows 16MiB to be mapped at any one time to either bus.
-	each page entry corresponds to a specific virtual address (space start + 0x10000*page)
+	pages are 64kiB (0x10000) in size, thus 512 pages allows 32MiB to be mapped at any one time to both buses.
+	each page table entry (aka slot) corresponds to a specific virtual address (space start + 0x10000*page)
 
 
 micropython.bin (from OTA_0 partition offset):
@@ -56,7 +54,7 @@ micropython.bin (from OTA_0 partition offset):
 
 
 annotated page table dump from running uPython:
-	0 <-- ibus --> 100 <-- dbus --> 200
+	0 <-- irom --> 11 <-- drom --> 100
 	0: b	# IBus mapping of main code to 0x4200-0000
 	1: c
 	2: d
@@ -74,7 +72,7 @@ annotated page table dump from running uPython:
 	e: 19
 	f: 1a
 	10: 1b
-	11: 1	# weird IBus mapped data segment to 0x4211-0000 (should be 0x3C11-0000)
+	11: 1	# DBus mapping of rodata to 0x3c11-0000
 	12: 2
 	13: 3
 	14: 4
@@ -95,13 +93,15 @@ annotated page table dump from running uPython:
 
 
 So where to put DOOM?:
-	Looks like I have free IROM address space above 0x4220-0000 (page table entry 0x20+)
-	- so simply link with this as .text base address
-	DROM address space is all unused, so start at 0x3C00-0000?
-	- link with this as .rodata base address
+	MMU pages are used up to 0x1b, OTA_1 partition is @ offset 0x210000, so it's tidy and
+	well clear of uPython if I link with:
+	- .text =>   0x42210000 (actually 0x42210020 to account for .bin file headers)
+	- .rodata => 0x3c250000 (doom has ~4 pages of code, and again actually 0x3c250020)
+
 	DRAM is all occupied by uPython heap (if I'm reading the startup code right), so this
-	is my challenge - find a way to have relocatable .data & .bss that I can malloc()?
-	- or malloc() a huge blob that will always end up in PSRAM, and hope the address range
-	  covers where I chose to set .data base address (yuk!)
-	  This appears feasible - alloc 7MiB always ensure 0x3D90-0000 is within the returned
-	  memory address range.. loader can also check before dumping segment in there..
+	is my challenge - find a way to reserve space in SPIRAM that is always available..
+	- malloc() a huge blob that will always end up in SPIRAM, forcing GC to clean up and
+	  ensuring it covers where I chose to set .data base address
+	  This appears feasible - malloc'ing 7MiB reliably returns 0x3D850000(ish), so I can
+	  link doom with .data+.bss => 0x3d900000, and having malloc'ed a large blob, realloc
+	  it back to 1MiB, leaving the rest free for more allocation..
