@@ -33,6 +33,10 @@ void D_DoomMain (void);
 void M_FindResponseFile(void);
 
 
+
+// == sentinel initialised data - ensures we have /something/ in .data and valid __bss_start symbol :)
+static int _sentinel = 0xD003300D;
+extern int __bss_start, _end;
 // == uPython callback object (an instance of the loader module)
 static mp_obj_t dw_callback;
 // == dynamic pointer to uPython module API helper functions
@@ -51,9 +55,20 @@ static mp_fun_table_t *dw_fun_table;
 #define m_free(p)							(dw_fun_table->realloc_((p), 0, false))
 #define m_realloc(p, s)						(dw_fun_table->realloc_((p), (s), true))
 
+// == Non-local return buffer, used to exit Doom
+static nlr_buf_t dw_exit;
+
 // == Our entry point, called by the loader
 void run_doom(mp_obj_t callback, mp_fun_table_t *fun_table)
 {
+	// clear .bss
+	unsigned char *bss = (unsigned char *)&__bss_start;
+	unsigned char *end = (unsigned char *)&_end;
+	mp_printf(&mp_plat_print, "clearing .bss (%p-%p)..\n", bss, end);
+	while (bss<end)
+		*bss++ = 0;
+	mp_printf(&mp_plat_print, "done\n");
+
     // fake arguments
 	char *argv[] = { "doom", NULL };
     myargc = 1;
@@ -71,8 +86,12 @@ void run_doom(mp_obj_t callback, mp_fun_table_t *fun_table)
     // start doom
     mp_printf(&mp_plat_print, "Starting D_DoomMain\r\n");
     
-	D_DoomMain ();
+	// non-local exit point
+	if (!dw_fun_table->nlr_push(&dw_exit))
+		D_DoomMain ();
 
+    mp_printf(&mp_plat_print, "Exit from D_DoomMain\r\n");
+    
 	// clear callback & function table
 	dw_callback = 0;
 	dw_fun_table = NULL;
@@ -172,11 +191,10 @@ const char _ctype_[1 + 256] = {
 };
 
 void exit(int code) {
-	// TODO:PAA - we can't exit uPython..
-	// ..we /could/ longjmp back to entry??
-	// ..we /could/ call back into uPython to terminate thread??
-	mp_printf(&mp_plat_print, "*** doom called exit(%d) - hanging.\n", code);
-	while(1);
+	// ..use saved non-local return buffer to bail
+	mp_printf(&mp_plat_print, "*** doom called exit(%d) - jumping out.\n", code);
+	dw_fun_table->raise(mp_obj_new_int(code));
+	while (1);
 }
 
 int system(const char *cmd) {
