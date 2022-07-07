@@ -11,6 +11,7 @@ MPY_DIR=../micropython
 MOD = romread
 SRC = romread.c
 ARCH = xtensawin
+CLEAN_EXTRA=$(MOD).mpy binsegments
 
 include $(MPY_DIR)/py/dynruntime.mk
 CROSS = $(COMPILER)/bin/xtensa-esp32s3-elf-

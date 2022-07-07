@@ -1,0 +1,69 @@
+What happens during Cache_[I|D]bus_MMU_Set?
+
+#include <components/esp_rom/include/esp32s3/rom/cache.h>
+
+int Cache_[I|D]bus_MMU_Set(uint attr, uint vaddr, uint poff, uint psizek, uint pages, bool fixed) {
+
+	uint a12 = attr;
+	attr = 0x40 / psizek;	// how many supplied page size units fit in 64k?
+	attr -= 1;				// what bit shift required to mask?
+	uint a8 = mmu_page_mask;// 0x0ffff
+	a8 >>= attr;			// adjust page mask for supplied page size
+	attr = vaddr | poff;	// merge bits..
+	a8 &= attr;				// mask off (should be zero result)
+	if (a8)
+		return 2;			// unaligned vaddr or poff error
+
+	if (psizek != 0x40)		// weird given the above logic.. oh well.
+		return 3;			// page size not 64k error
+
+	while (pages) {
+		// compiler 'optimised' version of 'MMU_[I|D]BASE + MMU_ADDR_SIZE - (vaddr & MMU_PAGE_MASK)'
+		attr = 0x02000000;
+		psizek = 0xFE000000;
+		uint a10 = vaddr+attr;
+		a10 &= psizek;
+		uint a14 = a10-vaddr;
+	
+#if Ibus
+		psizek = 0xBE000000;	// -0x42000000 :)
+#else
+		psizek = 0xC4000000;	// -0x3C000000 :)
+#endif
+		attr = vaddr+psizek;	// adjust down to offset from MMU_[I|D]BASE
+		psizek = 0x01ffffff;	// maximum offset
+		if (psizek<attr)		// check for overflow of vaddr
+			return 4;			// vaddr too big error
+	
+		uint a11 = a14>>16;		// reduce remaining address space to pages (0x0001<0x0200)
+		a11 = min(a11, pages);	// choose smaller of remaining space or specified number of pages
+	
+		uint a15;
+		a15 = (poff>>16)&0xffff;// extract top 16 bits of physical offset (page number)
+		attr = 0x600C5000;		// point at MMU page base
+		vaddr = (vaddr>>16)&0x01ff;// extract top 16 bits of virtual address, mask down to 9 bits
+		vaddr <<= 2;			// multiply up to MMU table entry offset
+		vaddr += attr;			// add base address to point at table entry
+		uint a9 = a8;			// faster instruction than immedate zeroing (a8==0)
+		attr = a15 | a12;		// merge physical page with page attributes (saved at top)
+	
+		while (a9!=a11) {		// for each page in range (a11)
+			if (!fixed) {		// auto-increment physical page (by adding a9 counter)
+				uint a13;
+				a13 = a9+a15;
+				a13 |= a12;
+				*vaddr = a13;
+			} else {
+				*vaddr = attr;	// map all virtual pages to same physical page
+			}
+			a9 += 1;
+			vaddr += 4;
+		}
+		pages -= a9;
+		if (!fixed)
+			poff += a14;		// adjust physical offset by mapped amount (remaining space?)
+		vaddr = a10;			// adjust vaddr to top of space?
+	}
+	return pages;
+}
+

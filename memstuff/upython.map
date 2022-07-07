@@ -1,21 +1,22 @@
 # Memory map of uPython once loaded..
 
-ESP32S3 memory regions (<esp-idf>/components/soc/esp32s3/include/soc/[soc.h,cache_memory.h]):
+ESP32S3 memory regions (<esp-idf>/components/soc/esp32s3/include/soc/[soc.h,cache_memory.h]),
+also 'esp32-s3_technical_reference_manual_en.pdf' (for cache in SRAM details):
 	0x0000-0000 -> 0x3C00-0000				# reserved
 	0x3C00-0000 -> 0x3E00-0000				# DBus MMU virtual address space (32MiB):	unpopulated until MMU config
 	0x3E00-0000 -> 0x3FC8-0000				# reserved
-	0x3FC8-0000 -> 0x3FC8-8000				# Dbus cache SRAM (32kiB)
+	0x3FC8-0000 -> 0x3FC8-8000				# reserved (DBus cache alias of IBus cache)
 	0x3FC8-8000 -> 0x3FCF-0000				# Dbus -> SRAM address space (512-32-64kiB: 416kiB)
-	0x3FCF-0000 -> 0x3FD0-0000				# reserved (IBus cache alias)
+	0x3FCF-0000 -> 0x3FD0-0000				# DBus cache SRAM (64kiB)
 	0x3FD0-0000 -> 0x3FF0-0000				# reserved
 	0x3FF0-0000 -> 0x3FF2-0000				# DBus -> ESPROM access (/top/ 128kiB):	entropy: espdrom.raw.png
 	0x3FF2-0000 -> 0x4000-0000				# reserved
 
 	0x4000-0000 -> 0x4006-0000				# IBus -> ESPROM access (all 384kiB):		entropy: espirom.raw.png
 	0x4006-0000 -> 0x4037-0000				# reserved
-	0x4037-0000 -> 0x4037-8000				# reserved (DBus cache alias)
+	0x4037-0000 -> 0x4037-8000				# Ibus cache SRAM (32kiB)
 	0x4037-8000 -> 0x403E-0000				# IBus -> SRAM address space (512-32-64kiB: 416kiB)
-	0x403E-0000 -> 0x403F-0000				# IBus cache SRAM (64kiB)
+	0x403E-0000 -> 0x403F-0000				# reserved (IBus cache alias of DBus cache)
 	0x403F-0000 -> 0x4200-0000				# reserved
 	0x4200-0000 -> 0x4400-0000				# IBus MMU virtual address space (32MiB):	unpopulated until MMU config
 	0x4400-0000 -> 0x5000-0000				# reserved
