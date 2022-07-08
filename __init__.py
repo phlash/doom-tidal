@@ -1,3 +1,4 @@
+from gc import collect
 from time import sleep_ms, ticks_ms
 from tidal import *
 from app import TextApp
@@ -9,9 +10,13 @@ class Doom(TextApp):
     BG = BLACK
     FG = WHITE
     upcalls = 0
-    doswap = 0
+    blksize = 4096
+    doswap = 1
 
     def _log(self, msg):
+        # scroll check
+        if self.window.get_next_line() > self.window.height_chars():
+            self.window.cls()
         self.window.println(msg)
         print(msg)
 
@@ -25,41 +30,56 @@ class Doom(TextApp):
         part = Partition.find(Partition.TYPE_APP, label=f"ota_{ota}")[0]
         chdir("/apps/Doom")
         # read the existing contents..
-        buf = bytearray(part.info()[3])
+        buf = bytearray(self.blksize)
         self._log("got buffer..")
         if self.doswap>1:
             self._log(f"Backing up OTA {ota}={part}..")
-            part.readblocks(0, buf)
-            self._log("read ota..")
             remove('ota.bin')
             with open('ota.bin', 'wb') as f:
-                f.write(buf)
+                l = 0
+                t = part.info()[3]
+                while l<t:
+                    part.readblocks(l>>12, buf)
+                    f.write(buf)
+                    l += self.blksize
+                    self._log(f"{l}/{t}")
             self._log("written 'ota.bin'..")
         if self.doswap>0:
             self._log(f"Writing 'doom.bin' to OTA {ota}..")
             with open('doom.bin', 'rb') as f:
-                l = f.readinto(buf)
-                # round up to block size multiple
-                while l%4096!=0:
-                    l += 1
-                self._log(f"read 'doom.bin'({l})..")
-                part.writeblocks(0, buf[0:l])
+                t = stat('doom.bin')[6]
+                l = 0
+                while l<t:
+                    n = f.readinto(buf)
+                    # round up to block size multiple
+                    while n%self.blksize!=0:
+                        n += 1
+                    part.writeblocks(l>>12, buf)
+                    l += self.blksize
+                    self._log(f"{l}/{t}")
             self._log("written OTA")
         # allow the GC to clean up..
         buf = None
-        self._log("running DOOM!")
+        collect()
+        self._log("loading DOOM!")
         ok = doomloader.doom(ota, self)
         #sleep_ms(5000)
         # swap the OTA partition contents back again
-        buf = bytearray(part.info()[3])
+        buf = bytearray(self.blksize)
         self._log("got buffer..")
         if self.doswap>1:
             self._log("Swapping OTA content back again..")
             with open('ota.bin', 'rb') as f:
-                l = f.readinto(buf)
-                self._log(f"read 'ota.bin'({l})..")
-                part.writeblocks(0, buf[0:l])
-            self._log("written OTA, thanks for playing ;=)")
+                t = part.info()[3]
+                l = 0
+                while l<t:
+                    n = f.readinto(buf)
+                    while n%self.blksize!=0:
+                        n += 1
+                    part.writeblocks(l>>12, buf)
+                    l += self.blksize
+                    self._log(f"{l}/{t}")
+            self._log("written OTA")
         self._log("I ain't dead yet!")
 
     def __call__(self, op, arg1=None, arg2=None, arg3=None, arg4=None):

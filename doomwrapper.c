@@ -33,10 +33,8 @@ void D_DoomMain (void);
 void M_FindResponseFile(void);
 
 
-
-// == sentinel initialised data - ensures we have /something/ in .data and valid __bss_start symbol :)
-static int _sentinel = 0xD003300D;
-extern int __bss_start, _end;
+// == linker defined symbols we use to clear .bss
+extern int _bss_start, _end;
 // == uPython callback object (an instance of the loader module)
 static mp_obj_t dw_callback;
 // == dynamic pointer to uPython module API helper functions
@@ -44,7 +42,7 @@ static mp_obj_t dw_callback;
 static mp_fun_table_t *dw_fun_table;
 #define mp_plat_print						(*dw_fun_table->plat_print)
 #define mp_printf(p, ...)					(dw_fun_table->printf_((p), __VA_ARGS__))
-#define mp_vprintf(p, f, a)					(dw_fun_table->printf_((p), (f), (a)))
+#define mp_vprintf(p, f, a)					(dw_fun_table->vprintf_((p), (f), (a)))
 #define mp_obj_new_str(s, l)				(dw_fun_table->obj_new_str((s), (l)))
 #define mp_obj_new_int(n)					(dw_fun_table->native_to_obj((n), MP_NATIVE_TYPE_INT))
 #define mp_obj_new_bytearray_by_ref(p, l)	(dw_fun_table->obj_new_bytearray_by_ref((p), (l)))
@@ -61,13 +59,13 @@ static nlr_buf_t dw_exit;
 // == Our entry point, called by the loader
 void run_doom(mp_obj_t callback, mp_fun_table_t *fun_table)
 {
-	// clear .bss
-	unsigned char *bss = (unsigned char *)&__bss_start;
+	// clear .bss (nb: cannot use mp_printf macro yet..)
+	unsigned char *bss = (unsigned char *)&_bss_start;
 	unsigned char *end = (unsigned char *)&_end;
-	mp_printf(&mp_plat_print, "clearing .bss (%p-%p)..\n", bss, end);
+	fun_table->printf_(fun_table->plat_print, "clearing .bss (%p-%p)..\n", bss, end);
 	while (bss<end)
 		*bss++ = 0;
-	mp_printf(&mp_plat_print, "done\n");
+	fun_table->printf_(fun_table->plat_print, "done\n");
 
     // fake arguments
 	char *argv[] = { "doom", NULL };
@@ -225,19 +223,23 @@ int putchar(int c) {
 	return c;
 }
 
-struct _spdata { char *buf; size_t len; };
+struct _spdata { char *buf; size_t len; size_t pos; };
 void _snprintf(void *p, const char *str, size_t len) {
 	struct _spdata *data = (struct _spdata *)p;
 	size_t i;
-	for (i=0; i<data->len && i<len; i++)
-		data->buf[i] = str[i];
-	data->len = i;
+	for (i=0; i+data->pos<data->len && i<len; i++)
+		data->buf[i+data->pos] = str[i];
+	if (i+data->pos<data->len)
+		data->buf[i+data->pos]=0;
+	else
+		mp_printf(&mp_plat_print, "_snprintf() buffer overflow: %d\n", data->len);
+	data->pos += i;
 }
 int vsnprintf(char *buf, size_t len, const char *fmt, va_list ap) {
-	struct _spdata data = { buf, len };
+	struct _spdata data = { buf, len, 0 };
 	mp_print_t us = { &data, _snprintf };
-	mp_printf(&us, fmt, ap);
-	return (int)data.len;
+	mp_vprintf(&us, fmt, ap);
+	return (int)data.pos;
 }
 int snprintf(char *buf, size_t len, const char *fmt, ...) {
 	va_list ap;
@@ -292,7 +294,9 @@ void *memset(void *s, int c, size_t n) {
 }
 
 void *malloc(size_t l) {
-	return m_malloc(l);
+	void *p = m_malloc(l);
+	mp_printf(&mp_plat_print, "malloc(%u)=%p\n", l, p);
+	return p;
 }
 
 void *calloc(size_t n, size_t l) {

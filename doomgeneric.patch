@@ -5107,7 +5107,7 @@ index e429e96..7570a28 100644
      // pitch if a link
      int pitch;
 diff --git a/doomgeneric/i_system.c b/doomgeneric/i_system.c
-index 5d00091..33ff9ce 100644
+index 5d00091..e9c6659 100644
 --- a/doomgeneric/i_system.c
 +++ b/doomgeneric/i_system.c
 @@ -68,7 +68,7 @@ struct atexit_listentry_s
@@ -5119,6 +5119,16 @@ index 5d00091..33ff9ce 100644
  
  void I_AtExit(atexit_func_t func, boolean run_on_error)
  {
+@@ -260,8 +260,8 @@ void I_Quit (void)
+ #if ORIGCODE
+     SDL_Quit();
+ 
+-    exit(0);
+ #endif
++    exit(0);
+ }
+ 
+ #if !defined(_WIN32) && !defined(__MACOSX__)
 @@ -325,7 +325,7 @@ static int ZenityErrorBox(char *message)
      int result;
      char *escaped_message;

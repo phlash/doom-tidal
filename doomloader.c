@@ -17,11 +17,12 @@
 
 // @see memstuff/uPython.map
 #define INIT_ALLOC		0x700000
-#define FINAL_ALLOC		0x100000
+#define FINAL_ALLOC		0x040000
 #define DATABASE		0x3D900000
 
 #define OTA0BASE		0x10000
 #define OTA1BASE		0x210000
+#define OTASIZE			0x200000	// 2MiB
 #define TEMPDROMADDR	0x3C400000	// 4MiB into address space
 
 #pragma pack(push,1)
@@ -84,8 +85,8 @@ STATIC mp_obj_t doom(mp_obj_t oobj, mp_obj_t callback) {
 	int rv = 0;
 	#define _ERR(m, r)	{ err = m; rv = r; goto done; }
 	int ota = mp_obj_get_int(oobj);
-	esp_image_header_t hdr;
-	esp_image_segment_t seg;
+	esp_image_header_t *hdr;
+	esp_image_segment_t *seg;
 	// allocate RAM, check address is suitable then realloc to sensible size
 	void *ptr = m_malloc(INIT_ALLOC);
 	if (!ptr) {
@@ -101,25 +102,44 @@ STATIC mp_obj_t doom(mp_obj_t oobj, mp_obj_t callback) {
 	if (!ptr)
 		_ERR("oops: realloc failed", -3);
 	mp_printf(&mp_plat_print, ".data segment allocated: %p-%p\n", ptr, (uint8_t*)ptr+resize);
-	// mmap & read doom.bin from selected OTA partition
+	// mmap entire OTA partition so we can read segment info
 	// use page well out of the way..
 	uint32_t otabase = ota>0 ? OTA1BASE : OTA0BASE;
-	if (mmap(otabase, MMUPAGESIZE, TEMPDROMADDR)<0)
+	if (mmap(otabase, OTASIZE, TEMPDROMADDR)<0)
 		_ERR("mmap failed", -4);
-	mp_fun_table.memmove_(&hdr, (void *)TEMPDROMADDR, sizeof(hdr));
-	mp_fun_table.memmove_(&seg, (void *)(TEMPDROMADDR+sizeof(hdr)), sizeof(seg));
-	if (munmap(MMUPAGESIZE, TEMPDROMADDR)<0)
-		_ERR("munmap failed", -5);
+	uint32_t otaoff = TEMPDROMADDR;
+	hdr = (void *)otaoff;
+	otaoff += sizeof(*hdr);
 	mp_printf(&mp_plat_print,
 		"doom.bin:\n" \
 		"\tchip: %x\n" \
 		"\tsegs: %d\n" \
-		"\tentry: %x\n" \
-		"seg:0\n" \
-		"\tload: %x\n" \
-		"\tsize: %x\n",
-		hdr.chip, hdr.segs, hdr.entry,
-		seg.load, seg.size);
+		"\tentry: %x\n",
+		hdr->chip, hdr->segs, hdr->entry);
+	for (uint32_t s=0; s<hdr->segs; s++) {
+		seg = (void *)otaoff;
+		otaoff += sizeof(*seg);
+		mp_printf(&mp_plat_print,
+			"seg:%d\n" \
+			"\toffs: %x\n" \
+			"\tload: %x\n" \
+			"\tsize: %x\n",
+			s, otaoff-TEMPDROMADDR, seg->load, seg->size);
+		// round down offset and load to page boundary, adjust size
+		uint32_t moffs = (otaoff - TEMPDROMADDR + otabase) & ~(MMUPAGEMASK);
+		uint32_t mload = seg->load & ~(MMUPAGEMASK);
+		uint32_t msize = seg->size + (seg->load - mload);
+		// map it (unless padding)
+		if (seg->load && mmap(moffs, msize, mload)<0)
+			_ERR("mmap failed", -4);
+		otaoff += seg->size;
+	}
+	if (munmap(OTASIZE, TEMPDROMADDR)<0)
+		_ERR("munmap failed", -5);
+	// in theory, we're ready to roll..
+	mp_printf(&mp_plat_print, "calling run_doom()@%x\n", hdr->entry);
+	int (*run_doom)(mp_obj_t, const mp_fun_table_t *) = (void *)hdr->entry;
+	rv = run_doom(callback, &mp_fun_table);
 done:
 	if (err)
 		mp_printf(&mp_plat_print, "%s\n", err);
