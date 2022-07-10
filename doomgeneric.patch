@@ -5107,7 +5107,7 @@ index e429e96..7570a28 100644
      // pitch if a link
      int pitch;
 diff --git a/doomgeneric/i_system.c b/doomgeneric/i_system.c
-index 5d00091..e9c6659 100644
+index 5d00091..e7c9402 100644
 --- a/doomgeneric/i_system.c
 +++ b/doomgeneric/i_system.c
 @@ -68,7 +68,7 @@ struct atexit_listentry_s
@@ -5168,6 +5168,16 @@ index 5d00091..e9c6659 100644
  
      // Write a copy of the message into buffer.
      va_start(argptr, error);
+@@ -458,8 +456,8 @@ void I_Error (char *error, ...)
+ #if ORIGCODE
+     SDL_Quit();
+ 
+-    exit(-1);
+ #else
++    exit(-1);
+     while (true)
+     {
+     }
 @@ -492,19 +490,18 @@ static const unsigned char mem_dump_win98[DOS_MEM_DUMP_SIZE] = {
    0x9E, 0x0F, 0xC9, 0x00, 0x65, 0x04, 0x70, 0x00, 0x16, 0x00};
  static const unsigned char mem_dump_dosbox[DOS_MEM_DUMP_SIZE] = {
@@ -5941,7 +5951,7 @@ index a17de2b..3fb37b2 100644
  void M_SaveDefaults(void);
  void M_SaveDefaultsAlternate(char *main, char *extra);
 diff --git a/doomgeneric/m_controls.c b/doomgeneric/m_controls.c
-index f0ffa01..956a97f 100644
+index f0ffa01..78360ed 100644
 --- a/doomgeneric/m_controls.c
 +++ b/doomgeneric/m_controls.c
 @@ -26,47 +26,47 @@
@@ -6228,6 +6238,15 @@ index f0ffa01..956a97f 100644
   
  // 
  // Bind all of the common controls used by Doom and all other games.
+@@ -382,7 +382,7 @@ void M_BindChatControls(unsigned int num_players)
+     for (i=0; i<num_players; ++i)
+     {
+         M_snprintf(name, sizeof(name), "key_multi_msgplayer%i", i + 1);
+-        M_BindVariable(name, &key_multi_msgplayer[i]);
++        //TODO:PAA: M_BindVariable(name, &key_multi_msgplayer[i]);
+     }
+ }
+ 
 @@ -393,6 +393,176 @@ void M_BindChatControls(unsigned int num_players)
  
  void M_ApplyPlatformDefaults(void)

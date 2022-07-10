@@ -84,42 +84,37 @@ class Doom(TextApp):
 
     def __call__(self, op, arg1=None, arg2=None, arg3=None, arg4=None):
         self.upcalls += 1
-        #print(f"Doom.callback[{self.upcalls}]({op},{arg1},{arg2},{arg3},{arg4})")
-        #sleep_ms(1000)
         if "blit" == op:        # first check for speed!
             return display.blit_buffer(arg1, 0, 0, 240, 135)
         elif "sleep" == op:     # timing things next, for accuracy
             return sleep_ms(arg1)
         elif "ticks" == op:
             return ticks_ms()
-        elif "fopen" == op:
-            return open(arg1, arg2)
-        elif "fclose" == op:
-            return arg1.close()
-        elif "ftell" == op:
-            return arg1.tell()
-        elif "fseek" == op:
-            return arg1.seek(arg2, arg3)
-        elif "fwrite" == op:
-            return arg2.write(arg1)
-        elif "fread" == op:
-            return arg2.readinto(arg1)
-        elif "remove" == op:
-            try:
+        try:
+            print(f"Doom.callback[{self.upcalls}]({op},{arg1},{arg2},{arg3},{arg4})")
+            #sleep_ms(1000)
+            if "fopen" == op:
+                return open(arg1, arg2)
+            elif "fclose" == op:
+                return arg1.close()
+            elif "ftell" == op:
+                return arg1.tell()
+            elif "fseek" == op:
+                return arg1.seek(arg2, arg3)
+            elif "fwrite" == op:
+                return arg2.write(arg1)
+            elif "fread" == op:
+                return arg2.readinto(arg1)
+            elif "remove" == op:
                 return remove(arg1)
-            except OSError:
-                return 0
-        elif "rename" == op:
-            try:
+            elif "rename" == op:
                 return rename(arg1, arg2)
-            except OSError:
-                return 0
-        elif "mkdir" == op:
-            try:
+            elif "mkdir" == op:
                 return mkdir(arg1)
-            except OSError:
-                return 0
-        print("unknown command!")
-        return 0
+            raise OSError(f"unknown command: {op}")
+        except BaseException as oops:
+            print(oops)
+            pass
+        return None
 
 main = Doom

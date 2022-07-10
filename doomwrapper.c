@@ -43,6 +43,7 @@ static mp_fun_table_t *dw_fun_table;
 #define mp_plat_print						(*dw_fun_table->plat_print)
 #define mp_printf(p, ...)					(dw_fun_table->printf_((p), __VA_ARGS__))
 #define mp_vprintf(p, f, a)					(dw_fun_table->vprintf_((p), (f), (a)))
+#define mp_obj_none							(dw_fun_table->const_none)
 #define mp_obj_new_str(s, l)				(dw_fun_table->obj_new_str((s), (l)))
 #define mp_obj_new_int(n)					(dw_fun_table->native_to_obj((n), MP_NATIVE_TYPE_INT))
 #define mp_obj_new_bytearray_by_ref(p, l)	(dw_fun_table->obj_new_bytearray_by_ref((p), (l)))
@@ -53,8 +54,10 @@ static mp_fun_table_t *dw_fun_table;
 #define m_free(p)							(dw_fun_table->realloc_((p), 0, false))
 #define m_realloc(p, s)						(dw_fun_table->realloc_((p), (s), true))
 
-// == Non-local return buffer, used to exit Doom
-static nlr_buf_t dw_exit;
+// == jump buffer, used to exit Doom, size definitely larger than any offset found in ROM disassembly..
+static int dw_exit[64];
+#define ESPROM_SETJMP	0x4000144c
+#define ESPROM_LONGJMP	0x40001440
 
 // == Our entry point, called by the loader
 void run_doom(mp_obj_t callback, mp_fun_table_t *fun_table)
@@ -83,12 +86,13 @@ void run_doom(mp_obj_t callback, mp_fun_table_t *fun_table)
 
     // start doom
     mp_printf(&mp_plat_print, "Starting D_DoomMain\r\n");
-    
+
 	// non-local exit point
-	if (!dw_fun_table->nlr_push(&dw_exit))
+	int rv = ((int (*)(int*))ESPROM_SETJMP)(dw_exit);
+	if (!rv)
 		D_DoomMain ();
 
-    mp_printf(&mp_plat_print, "Exit from D_DoomMain\r\n");
+    mp_printf(&mp_plat_print, "Exit from D_DoomMain: %d\r\n", rv);
     
 	// clear callback & function table
 	dw_callback = 0;
@@ -191,11 +195,16 @@ const char _ctype_[1 + 256] = {
 void exit(int code) {
 	// ..use saved non-local return buffer to bail
 	mp_printf(&mp_plat_print, "*** doom called exit(%d) - jumping out.\n", code);
-	dw_fun_table->raise(mp_obj_new_int(code));
+	if (code>0)
+		code = -code;
+	else if (!code)
+		code = 1;
+	((void (*)(int*, int))ESPROM_LONGJMP)(dw_exit, code);
 	while (1);
 }
 
 int system(const char *cmd) {
+	mp_printf(&mp_plat_print, "system(%s)=-1\n", cmd);
 	// not suppported
 	return -1;
 }
@@ -436,7 +445,10 @@ FILE *fopen(const char *name, const char *mode) {
 		 mp_obj_new_str(name, strlen(name)),
 		 mp_obj_new_str(mode, strlen(mode)),
 	};
-	return MP_OBJ_TO_PTR(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 3, 0, &args[0]);
+	if (rv != mp_obj_none)
+		return MP_OBJ_TO_PTR(rv);
+	return NULL;
 }
 
 int fclose(FILE *stream) {
@@ -444,7 +456,10 @@ int fclose(FILE *stream) {
 		mp_obj_new_str("fclose", 6),
 		MP_OBJ_FROM_PTR(stream),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 2, 0, &args[0]);
+	if (rv != mp_obj_none)
+		return mp_obj_get_int(rv);
+	return -1;
 }
 
 long ftell(FILE *stream) {
@@ -452,7 +467,10 @@ long ftell(FILE *stream) {
 		mp_obj_new_str("ftell", 5),
 		MP_OBJ_FROM_PTR(stream),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 2, 0, &args[0]);
+	if (rv != mp_obj_none)
+		return mp_obj_get_int(rv);
+	return -1;
 }
 
 int fseek(FILE *stream, long o, int w) {
@@ -462,7 +480,10 @@ int fseek(FILE *stream, long o, int w) {
 		mp_obj_new_int(o),
 		mp_obj_new_int(w),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 4, 0, &args[0]));
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 4, 0, &args[0]);
+	if (rv != mp_obj_none)
+		return mp_obj_get_int(rv);
+	return -1;
 }
 
 size_t fwrite(const void *buf, size_t sz, size_t num, FILE *stream) {
@@ -471,8 +492,12 @@ size_t fwrite(const void *buf, size_t sz, size_t num, FILE *stream) {
 		mp_obj_new_bytearray_by_ref(sz*num, (void *)buf),
 		MP_OBJ_FROM_PTR(stream),
 	};
-	int wr = mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
-	return wr/sz;
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 3, 0, &args[0]);
+	if (rv != mp_obj_none) {
+		int wr = mp_obj_get_int(rv);
+		return wr/sz;
+	}
+	return -1;
 }
 
 size_t fread(void *buf, size_t sz, size_t num, FILE *stream) {
@@ -481,8 +506,12 @@ size_t fread(void *buf, size_t sz, size_t num, FILE *stream) {
 		mp_obj_new_bytearray_by_ref(sz*num, buf),
 		MP_OBJ_FROM_PTR(stream),
 	};
-	int rd = mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
-	return rd/sz;
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 3, 0, &args[0]);
+	if (rv != mp_obj_none) {
+		int rd = mp_obj_get_int(rv);
+		return rd/sz;
+	}
+	return -1;
 }
 
 int fputs(const char *s, FILE *f) {
@@ -513,7 +542,10 @@ int remove(const char *path) {
 		mp_obj_new_str("remove", 6),
 		mp_obj_new_str(path, strlen(path)),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 2, 0, &args[0]);
+	if (rv != mp_obj_none)
+		return mp_obj_get_int(rv);
+	return -1;
 }
 
 int rename(const char *old, const char *new) {
@@ -522,7 +554,10 @@ int rename(const char *old, const char *new) {
 		mp_obj_new_str(old, strlen(old)),
 		mp_obj_new_str(new, strlen(new)),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 3, 0, &args[0]);
+	if (rv != mp_obj_none)
+		return mp_obj_get_int(rv);
+	return -1;
 }
 
 int mkdir(const char *path, int mode) {
@@ -531,6 +566,9 @@ int mkdir(const char *path, int mode) {
 		mp_obj_new_str(path, strlen(path)),
 		mp_obj_new_int(mode),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 3, 0, &args[0]));
+	mp_obj_t rv = mp_call_function_n_kw(dw_callback, 3, 0, &args[0]);
+	if (rv != mp_obj_none)
+		return mp_obj_get_int(rv);
+	return -1;
 }
 
