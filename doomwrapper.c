@@ -497,7 +497,7 @@ size_t fwrite(const void *buf, size_t sz, size_t num, FILE *stream) {
 		int wr = mp_obj_get_int(rv);
 		return wr/sz;
 	}
-	return -1;
+	return 0;
 }
 
 size_t fread(void *buf, size_t sz, size_t num, FILE *stream) {
@@ -511,7 +511,7 @@ size_t fread(void *buf, size_t sz, size_t num, FILE *stream) {
 		int rd = mp_obj_get_int(rv);
 		return rd/sz;
 	}
-	return -1;
+	return 0;
 }
 
 int fputs(const char *s, FILE *f) {

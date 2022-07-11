@@ -9,7 +9,7 @@ endif
 BUILD = build
 
 # Define first Makefile target to build both the loader and the engine
-stuff: all $(BUILD) $(BUILD)/doom.bin
+stuff: all $(BUILD) $(BUILD)/doom.bin $(BUILD)/zipwad
 .PHONY: stuff
 
 $(BUILD):
@@ -74,7 +74,7 @@ $(BUILD)/esptool.py:
 	wget --quiet -O $@ https://github.com/espressif/esptool/raw/b082b0ed2d86b3330134c4854a021dfd14c29b08/esptool.py
 
 # build with objects in subtree
-DOOMOBJ = $(addprefix $(BUILD)/,$(DOOMSRC:.c=.o) doomwrapper.o)
+DOOMOBJ = $(addprefix $(BUILD)/,$(DOOMSRC:.c=.o) tinflate.o doomwrapper.o)
 
 $(BUILD)/doom: $(DOOMOBJ)
 	$(CROSS)gcc -o $@ $(LDFLAGS) $^ $(LIBS)
@@ -93,3 +93,6 @@ $(BUILD)/doomwrapper.o: doomwrapper.c
 
 $(BUILD)/%.o: %.c
 	$(CROSS)gcc -c $(CFLAGS) -o $@ $<
+
+$(BUILD)/zipwad: zipwad.c
+	$(CC) -o $@ $<

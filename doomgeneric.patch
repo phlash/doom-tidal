@@ -7785,6 +7785,26 @@ index 9a78812..3ebb4e2 100644
  {
      {3,0,2,1},
      {3,0,2,0},
+diff --git a/doomgeneric/r_data.c b/doomgeneric/r_data.c
+index 2d4b65b..1276100 100644
+--- a/doomgeneric/r_data.c
++++ b/doomgeneric/r_data.c
+@@ -504,7 +504,6 @@ void R_InitTextures (void)
+     numtextures1 = LONG(*maptex);
+     maxoff = W_LumpLength (W_GetNumForName (DEH_String("TEXTURE1")));
+     directory = maptex+1;
+-	
+     if (W_CheckNumForName (DEH_String("TEXTURE2")) != -1)
+     {
+ 	maptex2 = W_CacheLumpName (DEH_String("TEXTURE2"), PU_STATIC);
+@@ -526,7 +525,6 @@ void R_InitTextures (void)
+     texturecompositesize = Z_Malloc (numtextures * sizeof(*texturecompositesize), PU_STATIC, 0);
+     texturewidthmask = Z_Malloc (numtextures * sizeof(*texturewidthmask), PU_STATIC, 0);
+     textureheight = Z_Malloc (numtextures * sizeof(*textureheight), PU_STATIC, 0);
+-
+     totalwidth = 0;
+     
+     //	Really complex printing shit...
 diff --git a/doomgeneric/r_draw.c b/doomgeneric/r_draw.c
 index 9271bcd..1ba4905 100644
 --- a/doomgeneric/r_draw.c
@@ -10278,10 +10298,18 @@ index 5933fdf..b6dfad0 100644
      // Go through each entry in the WAD directory, adding information
      // about each entry to the SHA1 hash.
 diff --git a/doomgeneric/w_file.c b/doomgeneric/w_file.c
-index cce3737..ea93153 100644
+index cce3737..6485004 100644
 --- a/doomgeneric/w_file.c
 +++ b/doomgeneric/w_file.c
-@@ -37,7 +37,7 @@ extern wad_file_class_t win32_wad_file;
+@@ -24,6 +24,7 @@
+ #include "m_argv.h"
+ 
+ #include "w_file.h"
++#include "z_zone.h"
+ 
+ extern wad_file_class_t stdc_wad_file;
+ 
+@@ -37,7 +38,7 @@ extern wad_file_class_t win32_wad_file;
  extern wad_file_class_t posix_wad_file;
  #endif 
  
@@ -10290,6 +10318,75 @@ index cce3737..ea93153 100644
  {
  /*
  #ifdef _WIN32
+@@ -87,9 +88,51 @@ void W_CloseFile(wad_file_t *wad)
+     wad->file_class->CloseFile(wad);
+ }
+ 
++#define W_BLKLEN    4096
++static char w_compdata[W_BLKLEN];
++static char *w_decompstate;
++// in tinflate.c
++extern int tinflate_state_size();
++extern int tinflate_partial(const void *cb, long cs, void *ob, long os, size_t *sr, size_t *cr, void *sb, long ss);
++extern void *memset(void *, int, size_t);
++#pragma pack(push,1)
++typedef struct { char z, l; uint32_t clen; } lumpz_t;
++#pragma pack(pop)
+ size_t W_Read(wad_file_t *wad, unsigned int offset,
+-              void *buffer, size_t buffer_len)
++              void *buffer, size_t buffer_len, boolean islump)
+ {
++    if (islump) {
++        // check first two bytes for 'ZL' marker, and compressed size
++        lumpz_t zh;
++        size_t rv = wad->file_class->Read(wad, offset, &zh, sizeof(zh));
++        if (rv!=6)
++            return rv;
++        if ('Z'==zh.z && 'L'==zh.l) {
++            // ensure we have a decompression state buffer
++            if (!w_decompstate)
++                w_decompstate = Z_Malloc(tinflate_state_size(), PU_STATIC, NULL);
++            memset(w_decompstate, 0, tinflate_state_size());
++            // read and decompress in blocks..
++            size_t rt = 0;
++            while (rt<zh.clen) {
++                size_t n = zh.clen - rt;
++                if (n>W_BLKLEN)
++                    n = W_BLKLEN;
++                n = wad->file_class->Read(wad, offset+sizeof(zh)+rt, w_compdata, n);
++                if (!n)
++                    return n;
++                rt += n;
++                int is = tinflate_partial(w_compdata, n, buffer, buffer_len, &n, NULL, w_decompstate, tinflate_state_size());
++                if (is<0)
++                    return 0;
++                if (!is) {
++                    // decompression done, return decompressed size
++                    return n;
++                }
++            }
++        }
++        // fall through to normal read
++    }
+     return wad->file_class->Read(wad, offset, buffer, buffer_len);
+ }
+ 
+diff --git a/doomgeneric/w_file.h b/doomgeneric/w_file.h
+index f577814..010b8da 100644
+--- a/doomgeneric/w_file.h
++++ b/doomgeneric/w_file.h
+@@ -70,9 +70,10 @@ void W_CloseFile(wad_file_t *wad);
+ 
+ // Read data from the specified file into the provided buffer.  The
+ // data is read from the specified offset from the start of the file.
++// islump specifies this is a lump and /may/ be compressed on disk..
+ // Returns the number of bytes read.
+ 
+ size_t W_Read(wad_file_t *wad, unsigned int offset,
+-              void *buffer, size_t buffer_len);
++              void *buffer, size_t buffer_len, boolean islump);
+ 
+ #endif /* #ifndef __W_FILE__ */
 diff --git a/doomgeneric/w_file_stdc.c b/doomgeneric/w_file_stdc.c
 index 829e960..9385590 100644
 --- a/doomgeneric/w_file_stdc.c
@@ -10331,7 +10428,7 @@ index 829e960..9385590 100644
      W_StdC_OpenFile,
      W_StdC_CloseFile,
 diff --git a/doomgeneric/w_wad.c b/doomgeneric/w_wad.c
-index 1248046..ae9cd99 100644
+index 1248046..7244996 100644
 --- a/doomgeneric/w_wad.c
 +++ b/doomgeneric/w_wad.c
 @@ -63,7 +63,7 @@ unsigned int numlumps = 0;
@@ -10342,6 +10439,24 @@ index 1248046..ae9cd99 100644
 +lumpinfo_t **ww_lumphash;
  
  // Hash function used for lump names.
+ 
+@@ -182,7 +182,7 @@ wad_file_t *W_AddFile (char *filename)
+     else 
+     {
+     	// WAD file
+-        W_Read(wad_file, 0, &header, sizeof(header));
++        W_Read(wad_file, 0, &header, sizeof(header), false);
+ 
+ 		if (strncmp(header.identification,"IWAD",4))
+ 		{
+@@ -201,7 +201,7 @@ wad_file_t *W_AddFile (char *filename)
+ 		length = header.numlumps*sizeof(filelump_t);
+ 		fileinfo = Z_Malloc(length, PU_STATIC, 0);
+ 
+-        W_Read(wad_file, header.infotableofs, fileinfo, length);
++        W_Read(wad_file, header.infotableofs, fileinfo, length, false);
+         newnumlumps += header.numlumps;
+     }
  
 @@ -227,10 +227,10 @@ wad_file_t *W_AddFile (char *filename)
  
@@ -10375,7 +10490,24 @@ index 1248046..ae9cd99 100644
          {
              if (!strncasecmp(lump_p->name, name, 8))
              {
-@@ -542,16 +542,16 @@ void W_GenerateHashTable(void)
+@@ -328,7 +328,6 @@ int W_LumpLength (unsigned int lump)
+     {
+ 	I_Error ("W_LumpLength: %i >= numlumps", lump);
+     }
+-
+     return lumpinfo[lump].size;
+ }
+ 
+@@ -353,7 +352,7 @@ void W_ReadLump(unsigned int lump, void *dest)
+ 	
+     I_BeginRead ();
+ 	
+-    c = W_Read(l->wad_file, l->position, dest, l->size);
++    c = W_Read(l->wad_file, l->position, dest, l->size, true);
+ 
+     if (c < l->size)
+     {
+@@ -542,16 +541,16 @@ void W_GenerateHashTable(void)
  
      // Free the old hash table, if there is one
  
@@ -10396,7 +10528,7 @@ index 1248046..ae9cd99 100644
  
          for (i=0; i<numlumps; ++i)
          {
-@@ -561,8 +561,8 @@ void W_GenerateHashTable(void)
+@@ -561,8 +560,8 @@ void W_GenerateHashTable(void)
  
              // Hook into the hash table
  
