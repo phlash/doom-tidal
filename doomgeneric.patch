@@ -3829,7 +3829,7 @@ index 755aec3..e381cd1 100644
  }
  
 diff --git a/doomgeneric/i_scale.c b/doomgeneric/i_scale.c
-index f88c694..d0d4310 100644
+index f88c694..fbad591 100644
 --- a/doomgeneric/i_scale.c
 +++ b/doomgeneric/i_scale.c
 @@ -32,37 +32,39 @@
@@ -4066,11 +4066,15 @@ index f88c694..d0d4310 100644
      puts("");
  }
  
-@@ -403,23 +403,23 @@ static void I_InitSquashTable(byte *palette)
+@@ -401,27 +401,32 @@ static void I_InitSquashTable(byte *palette)
+ // if switching to a completely different palette from the normal one
+ // (in which case the mappings no longer make any sense).
  
++#if 0
  void I_ResetScaleTables(byte *palette)
  {
 -    if (stretch_tables[0] != NULL)
++	iv_last_palette = palette;
 +    if (is_.stretch_tables[0] != NULL)
      {
 -        Z_Free(stretch_tables[0]);
@@ -4097,8 +4101,13 @@ index f88c694..d0d4310 100644
 +        is_.half_stretch_table = GenerateStretchTable(palette, 50);
      }
  }
++#else
++void I_ResetScaleTables(byte *palette) {}
++#endif
  
-@@ -461,43 +461,43 @@ static boolean I_Stretch1x(int x1, int y1, int x2, int y2)
+ 
+ // 
+@@ -461,43 +466,43 @@ static boolean I_Stretch1x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4156,7 +4165,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH, SCREENHEIGHT_4_3,
      I_InitStretchTables,
      I_Stretch1x,
-@@ -550,67 +550,67 @@ static boolean I_Stretch2x(int x1, int y1, int x2, int y2)
+@@ -550,67 +555,67 @@ static boolean I_Stretch2x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4244,7 +4253,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH * 2, SCREENHEIGHT_4_3 * 2,
      I_InitStretchTables,
      I_Stretch2x,
-@@ -665,91 +665,91 @@ static boolean I_Stretch3x(int x1, int y1, int x2, int y2)
+@@ -665,91 +670,91 @@ static boolean I_Stretch3x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4362,7 +4371,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH * 3, SCREENHEIGHT_4_3 * 3,
      I_InitStretchTables,
      I_Stretch3x,
-@@ -806,115 +806,115 @@ static boolean I_Stretch4x(int x1, int y1, int x2, int y2)
+@@ -806,115 +811,115 @@ static boolean I_Stretch4x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4510,7 +4519,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH * 4, SCREENHEIGHT_4_3 * 4,
      I_InitStretchTables,
      I_Stretch4x,
-@@ -953,37 +953,37 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
+@@ -953,37 +958,37 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4557,7 +4566,7 @@ index f88c694..d0d4310 100644
      }
  
      // test hack for Porsche Monty... scan line simulation:
-@@ -991,20 +991,20 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
+@@ -991,20 +996,20 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
  
      if (M_CheckParm("-scanline") > 0)
      {
@@ -4581,7 +4590,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH * 5, SCREENHEIGHT_4_3 * 5,
      I_InitStretchTables,
      I_Stretch5x,
-@@ -1037,19 +1037,19 @@ static inline void WriteSquashedLine1x(byte *dest, byte *src)
+@@ -1037,19 +1042,19 @@ static inline void WriteSquashedLine1x(byte *dest, byte *src)
  
          // 80% pixel 0,   20% pixel 1
  
@@ -4605,7 +4614,7 @@ index f88c694..d0d4310 100644
  
          x += 5;
          src += 5;
-@@ -1070,21 +1070,21 @@ static boolean I_Squash1x(int x1, int y1, int x2, int y2)
+@@ -1070,21 +1075,21 @@ static boolean I_Squash1x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4631,7 +4640,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH_4_3, SCREENHEIGHT,
      I_InitStretchTables,
      I_Squash1x,
-@@ -1104,7 +1104,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1104,7 +1109,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
      byte *dest2;
      int x, c;
  
@@ -4640,7 +4649,7 @@ index f88c694..d0d4310 100644
  
      for (x=0; x<SCREENWIDTH; )
      {
-@@ -1117,7 +1117,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1117,7 +1122,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
  
          // 60% pixel 0, 40% pixel 1
  
@@ -4649,7 +4658,7 @@ index f88c694..d0d4310 100644
          DRAW_PIXEL2;
  
          // 100% pixel 1
-@@ -1127,12 +1127,12 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1127,12 +1132,12 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
  
          // 20% pixel 1, 80% pixel 2
  
@@ -4664,7 +4673,7 @@ index f88c694..d0d4310 100644
          DRAW_PIXEL2;
  
          // 100% pixel 3
-@@ -1142,7 +1142,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1142,7 +1147,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
  
          // 40% pixel 3, 60% pixel 4
  
@@ -4673,7 +4682,7 @@ index f88c694..d0d4310 100644
          DRAW_PIXEL2;
  
          // 100% pixel 4
-@@ -1169,21 +1169,21 @@ static boolean I_Squash2x(int x1, int y1, int x2, int y2)
+@@ -1169,21 +1174,21 @@ static boolean I_Squash2x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4699,7 +4708,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH_4_3 * 2, SCREENHEIGHT * 2,
      I_InitStretchTables,
      I_Squash2x,
-@@ -1199,8 +1199,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
+@@ -1199,8 +1204,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
      byte *dest2, *dest3;
      int x, c;
  
@@ -4710,7 +4719,7 @@ index f88c694..d0d4310 100644
  
      for (x=0; x<SCREENWIDTH; )
      {
-@@ -1215,7 +1215,7 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
+@@ -1215,7 +1220,7 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
  
          // 50% pixel 0, 50% pixel 1
  
@@ -4719,7 +4728,7 @@ index f88c694..d0d4310 100644
  
          DRAW_PIXEL3;
  
-@@ -1235,8 +1235,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
+@@ -1235,8 +1240,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
  //
  // 3x scale squashed (800x600)
  //
@@ -4730,7 +4739,7 @@ index f88c694..d0d4310 100644
  // exactly.
  //
  
-@@ -1252,21 +1252,21 @@ static boolean I_Squash3x(int x1, int y1, int x2, int y2)
+@@ -1252,21 +1257,21 @@ static boolean I_Squash3x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4756,7 +4765,7 @@ index f88c694..d0d4310 100644
      800, 600,
      I_InitSquashTable,
      I_Squash3x,
-@@ -1282,9 +1282,9 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1282,9 +1287,9 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
      int c;
      byte *dest2, *dest3, *dest4;
  
@@ -4769,7 +4778,7 @@ index f88c694..d0d4310 100644
  
      for (x=0; x<SCREENWIDTH; )
      {
-@@ -1299,7 +1299,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1299,7 +1304,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 20% pixel 0,  80% pixel 1
  
@@ -4778,7 +4787,7 @@ index f88c694..d0d4310 100644
          DRAW_PIXEL4;
  
          // 100% pixel 1 x2
-@@ -1310,7 +1310,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1310,7 +1315,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 40% pixel 1, 60% pixel 2
  
@@ -4787,7 +4796,7 @@ index f88c694..d0d4310 100644
          DRAW_PIXEL4;
  
          // 100% pixel 2 x2
-@@ -1321,7 +1321,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1321,7 +1326,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 60% pixel 2, 40% pixel 3
  
@@ -4796,7 +4805,7 @@ index f88c694..d0d4310 100644
          DRAW_PIXEL4;
  
          // 100% pixel 3 x2
-@@ -1332,7 +1332,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1332,7 +1337,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 80% pixel 3, 20% pixel 4
  
@@ -4805,7 +4814,7 @@ index f88c694..d0d4310 100644
          DRAW_PIXEL4;
  
          // 100% pixel 4
-@@ -1363,21 +1363,21 @@ static boolean I_Squash4x(int x1, int y1, int x2, int y2)
+@@ -1363,21 +1368,21 @@ static boolean I_Squash4x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4831,7 +4840,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH_4_3 * 4, SCREENHEIGHT * 4,
      I_InitStretchTables,
      I_Squash4x,
-@@ -1393,10 +1393,10 @@ static inline void WriteSquashedLine5x(byte *dest, byte *src)
+@@ -1393,10 +1398,10 @@ static inline void WriteSquashedLine5x(byte *dest, byte *src)
      int c;
      byte *dest2, *dest3, *dest4, *dest5;
  
@@ -4846,7 +4855,7 @@ index f88c694..d0d4310 100644
  
      for (x=0; x<SCREENWIDTH; ++x)
      {
-@@ -1428,21 +1428,21 @@ static boolean I_Squash5x(int x1, int y1, int x2, int y2)
+@@ -1428,21 +1433,21 @@ static boolean I_Squash5x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4872,7 +4881,7 @@ index f88c694..d0d4310 100644
      SCREENWIDTH_4_3 * 5, SCREENHEIGHT * 5,
      I_InitStretchTables,
      I_Squash5x,
-@@ -1450,3 +1450,96 @@ screen_mode_t mode_squash_5x = {
+@@ -1450,3 +1455,96 @@ screen_mode_t mode_squash_5x = {
  };
  
  
@@ -4969,7 +4978,6 @@ index f88c694..d0d4310 100644
 +    &mode_squash_075x,
 +    NULL
 +};
-\ No newline at end of file
 diff --git a/doomgeneric/i_scale.h b/doomgeneric/i_scale.h
 index 48231f5..5dc02b3 100644
 --- a/doomgeneric/i_scale.h
