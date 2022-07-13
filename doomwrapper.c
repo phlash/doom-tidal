@@ -366,7 +366,7 @@ int strncmp(const char *s1, const char *s2, size_t n) {
 			return -1;
 		else if (s1[i]>s2[i])
 			return 1;
-	} while (i<n && s1[i] && s2[i]);
+	} while (i+1<n && s1[i] && s2[i]);
 	return 0;
 }
 

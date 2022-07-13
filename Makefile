@@ -91,7 +91,7 @@ $(BUILD)/%.o: doomgeneric/doomgeneric/%.c
 $(BUILD)/doomwrapper.o: doomwrapper.c
 	$(CROSS)gcc -c $(CFLAGS) -DMICROPY_ENABLE_DYNRUNTIME -DMP_CONFIGFILE='<$(CONFIG_H)>' -DNO_QSTR -I$(MPY_DIR) -o $@ $<
 
-$(BUILD)/%.o: %.c
+$(BUILD)/tinflate.o: tinflate.c
 	$(CROSS)gcc -c $(CFLAGS) -o $@ $<
 
 $(BUILD)/zipwad: zipwad.c

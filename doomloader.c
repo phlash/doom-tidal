@@ -17,7 +17,7 @@
 
 // @see memstuff/uPython.map
 #define INIT_ALLOC		0x700000
-#define FINAL_ALLOC		0x040000
+#define FINAL_ALLOC		0x050000
 #define DATABASE		0x3D900000
 
 #define OTA0BASE		0x10000

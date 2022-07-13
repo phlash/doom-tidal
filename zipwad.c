@@ -9,7 +9,7 @@
 #include <sys/wait.h>
 
 // ignore lumps smaller than this..
-#define MINZIPLUMP		2048
+#define MINZIPLUMP		512
 
 // write blocks up to this size through gzip
 #define MAXPIPEWR		4096
@@ -34,14 +34,16 @@ typedef struct {
 #pragma pack(pop)
 
 int usage(char **argv) {
-	return printf("usage: %s [-v] -w <wad in> -o <wad out>\n", argv[0]);
+	return printf("usage: %s [-v] [-m <min lump:%d>] -w <wad in> -o <wad out>\n", argv[0], MINZIPLUMP);
 }
 
 int main(int argc, char **argv) {
 	FILE *wadin, *wadout;
 	wad_header_t hdr;
 	lump_t *lumps;
+	int minlump = MINZIPLUMP;
 	int verb = 0;
+	int cnt = 0;
 	int rv = 1;
 	for (int arg=1; arg<argc; arg++) {
 		if (strncmp(argv[arg], "-w", 2)==0)
@@ -50,6 +52,8 @@ int main(int argc, char **argv) {
 			wadout = fopen(argv[++arg], "w+b");
 		else if (strncmp(argv[arg], "-v", 2)==0)
 			verb++;
+		else if (strncmp(argv[arg], "-m", 2)==0)
+			sscanf(argv[++arg], "%i", &minlump);
 		else
 			return usage(argv);
 	}
@@ -94,7 +98,7 @@ int main(int argc, char **argv) {
 		lumps[lump].offset = ftell(wadout);
 		// nothing to read?
 		if (!lumps[lump].size) {
-			puts(" [empty]");
+			if (verb) puts(" [empty]");
 			continue;
 		}
 		if (fseek(wadin, inoff, SEEK_SET)<0) {
@@ -111,7 +115,7 @@ int main(int argc, char **argv) {
 			goto oops;
 		}
 		// skip small lumps
-		if (lumps[lump].size < MINZIPLUMP) {
+		if (lumps[lump].size < minlump) {
 			if (fwrite(buf, lumps[lump].size, 1, wadout)!=1) {
 				perror("writing wad out same lump");
 				goto oops;
@@ -215,6 +219,7 @@ int main(int argc, char **argv) {
 				perror("writing wad out zip lump");
 				goto oops;
 			}
+			cnt += 1;
 		}
 		free(rbuf);
 		free(buf);
@@ -233,6 +238,7 @@ int main(int argc, char **argv) {
 		goto oops;
 	}
 	// et voila!
+	printf("shrunk %d/%d assets\n", cnt, hdr.count);
 	rv = 0;
 oops:
 	if (wadin)

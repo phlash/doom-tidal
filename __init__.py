@@ -91,27 +91,31 @@ class Doom(TextApp):
         elif "ticks" == op:
             return ticks_ms()
         try:
-            print(f"Doom.callback[{self.upcalls}]({op},{arg1},{arg2},{arg3},{arg4})")
+            rv = None
+            #print(f"Doom.callback[{self.upcalls}]({op},{arg1},{arg2},{arg3},{arg4})=", end='')
             #sleep_ms(1000)
             if "fopen" == op:
-                return open(arg1, arg2)
+                rv = open(arg1, arg2)
             elif "fclose" == op:
-                return arg1.close()
+                rv = arg1.close()
             elif "ftell" == op:
-                return arg1.tell()
+                rv = arg1.tell()
             elif "fseek" == op:
-                return arg1.seek(arg2, arg3)
+                rv = arg1.seek(arg2, arg3)
             elif "fwrite" == op:
-                return arg2.write(arg1)
+                rv = arg2.write(arg1)
             elif "fread" == op:
-                return arg2.readinto(arg1)
+                rv = arg2.readinto(arg1)
             elif "remove" == op:
-                return remove(arg1)
+                rv = remove(arg1)
             elif "rename" == op:
-                return rename(arg1, arg2)
+                rv = rename(arg1, arg2)
             elif "mkdir" == op:
-                return mkdir(arg1)
-            raise OSError(f"unknown command: {op}")
+                rv = mkdir(arg1)
+            else:
+                raise OSError(f"unknown command: {op}")
+            #print(rv)
+            return rv
         except BaseException as oops:
             print(oops)
             pass
