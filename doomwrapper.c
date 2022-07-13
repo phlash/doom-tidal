@@ -16,6 +16,12 @@
 //	missing POSIX / libc functions expected by doomgeneric..
 //
 
+// we use the nanoprintf library from Charles Nicholson to provide
+// a more fully featured snprintf/vsnprintf
+#define NANOPRINTF_IMPLEMENTATION
+#define NANOPRINTF_VISIBILITY_STATIC
+#include "nanoprintf/nanoprintf.h"
+
 // we include the structure definition for mp_fun_table_t but NOT
 // the declaration of an instance of it (in py/dynruntime.h) or the
 // inline functions & macros that rely on the instance. This allows
@@ -83,6 +89,10 @@ void run_doom(mp_obj_t callback, mp_fun_table_t *fun_table)
 
 	// locate and process arguments from '@' file (if any)
     M_FindResponseFile();
+
+	// create anything special for this port
+	extern void dg_Create(void);
+	dg_Create();
 
     // start doom
     mp_printf(&mp_plat_print, "Starting D_DoomMain\r\n");
@@ -209,16 +219,25 @@ int system(const char *cmd) {
 	return -1;
 }
 
+// internal callback for direct output printing
+static void _putc(int c, void *ctx) {
+	mp_print_t *mpt = (mp_print_t *)ctx;
+	char buf[2];
+	buf[0] = (char)c;
+	buf[1] = 0;
+	mpt->print_strn(mpt->data, buf, 1);
+}
+
 int printf(const char *f, ...) {
 	va_list ap;
 	va_start(ap, f);
-	int n = mp_vprintf(&mp_plat_print, f, ap);
+	int n = npf_vpprintf(_putc, (void *)&mp_plat_print, f, ap);
 	va_end(ap);
 	return n;
 }
 
 int vprintf(const char *f, va_list ap) {
-	int r = mp_vprintf(&mp_plat_print, f, ap);
+	int r = npf_vpprintf(_putc, (void *)&mp_plat_print, f, ap);
 	return r;
 }
 
@@ -232,23 +251,8 @@ int putchar(int c) {
 	return c;
 }
 
-struct _spdata { char *buf; size_t len; size_t pos; };
-void _snprintf(void *p, const char *str, size_t len) {
-	struct _spdata *data = (struct _spdata *)p;
-	size_t i;
-	for (i=0; i+data->pos<data->len && i<len; i++)
-		data->buf[i+data->pos] = str[i];
-	if (i+data->pos<data->len)
-		data->buf[i+data->pos]=0;
-	else
-		mp_printf(&mp_plat_print, "_snprintf() buffer overflow: %d\n", data->len);
-	data->pos += i;
-}
 int vsnprintf(char *buf, size_t len, const char *fmt, va_list ap) {
-	struct _spdata data = { buf, len, 0 };
-	mp_print_t us = { &data, _snprintf };
-	mp_vprintf(&us, fmt, ap);
-	return (int)data.pos;
+	return npf_vsnprintf(buf, len, fmt, ap);
 }
 int snprintf(char *buf, size_t len, const char *fmt, ...) {
 	va_list ap;

@@ -15,25 +15,31 @@ class Doom(TextApp):
 
     def _log(self, msg):
         # scroll check
-        if self.window.get_next_line() > self.window.height_chars():
+        nl = self.window.get_next_line()
+        if nl > self.window.height_chars():
             self.window.cls()
-        self.window.println(msg)
-        print(msg)
+        # newline check
+        if msg[len(msg)-1]=='\n':
+            self.window.println(msg)
+            print(msg)
+        else:
+            self.window.draw_line(msg, nl * self.window.line_height(), self.FG, self.BG, False)
+            print(msg, end='')
 
     def on_activate(self):
         super().on_activate()
         # landscape: joystick on the left, fire on Btn A, weapon on Btn B
         display.rotation(1)
-        self._log("Hi Mum!")
+        self._log("Hi Mum!\n")
         # swap unused OTA partition contents with our app ;=)
         ota = 0 if Partition.RUNNING>1 else 1
         part = Partition.find(Partition.TYPE_APP, label=f"ota_{ota}")[0]
         chdir("/apps/Doom")
         # read the existing contents..
         buf = bytearray(self.blksize)
-        self._log("got buffer..")
+        self._log("got buffer..\n")
         if self.doswap>1:
-            self._log(f"Backing up OTA {ota}={part}..")
+            self._log(f"Backing up OTA {ota}={part}..\n")
             remove('ota.bin')
             with open('ota.bin', 'wb') as f:
                 l = 0
@@ -43,9 +49,9 @@ class Doom(TextApp):
                     f.write(buf)
                     l += self.blksize
                     self._log(f"{l}/{t}")
-            self._log("written 'ota.bin'..")
+            self._log("written 'ota.bin'..\n")
         if self.doswap>0:
-            self._log(f"Writing 'doom.bin' to OTA {ota}..")
+            self._log(f"Writing 'doom.bin' to OTA {ota}..\n")
             with open('doom.bin', 'rb') as f:
                 t = stat('doom.bin')[6]
                 l = 0
@@ -57,18 +63,18 @@ class Doom(TextApp):
                     part.writeblocks(l>>12, buf)
                     l += self.blksize
                     self._log(f"{l}/{t}")
-            self._log("written OTA")
+            self._log("written OTA\n")
         # allow the GC to clean up..
         buf = None
         collect()
-        self._log("loading DOOM!")
+        self._log("loading DOOM!\n")
         ok = doomloader.doom(ota, self)
         #sleep_ms(5000)
         # swap the OTA partition contents back again
         buf = bytearray(self.blksize)
-        self._log("got buffer..")
+        self._log("got buffer..\n")
         if self.doswap>1:
-            self._log("Swapping OTA content back again..")
+            self._log("Swapping OTA content back again..\n")
             with open('ota.bin', 'rb') as f:
                 t = part.info()[3]
                 l = 0
@@ -79,8 +85,8 @@ class Doom(TextApp):
                     part.writeblocks(l>>12, buf)
                     l += self.blksize
                     self._log(f"{l}/{t}")
-            self._log("written OTA")
-        self._log("I ain't dead yet!")
+            self._log("written OTA\n")
+        self._log("I ain't dead yet!\n")
 
     def __call__(self, op, arg1=None, arg2=None, arg3=None, arg4=None):
         self.upcalls += 1

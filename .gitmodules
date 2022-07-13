@@ -4,3 +4,6 @@
 [submodule "doomgeneric"]
 	path = doomgeneric
 	url = https://github.com/ozkl/doomgeneric.git
+[submodule "nanoprintf"]
+	path = nanoprintf
+	url = https://github.com/charlesnicholson/nanoprintf.git
