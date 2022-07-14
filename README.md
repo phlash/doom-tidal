@@ -63,10 +63,10 @@ Installing the built module and wrapper python looks like this:
 % make install
 <..or..>
 % micropython/tools/pyboard.py --no-soft-reset -f mkdir /apps/Doom
-% micropython/tools/pyboard.py --no-soft-reset -f cp wrapper/__init__.py :/apps/Doom/
-% micropython/tools/pyboard.py --no-soft-reset -f cp build/doomloader.mpy :/apps/Doom/
+% micropython/tools/pyboard.py --no-soft-reset -f cp __init__.py :/apps/Doom/
+% micropython/tools/pyboard.py --no-soft-reset -f cp doomloader.mpy :/apps/Doom/
 % micropython/tools/pyboard.py --no-soft-reset -f cp build/doom.bin :/apps/Doom/
-% micropython/tools/pyboard.py --no-soft-reset -f cp <path to .WAD file> :/apps/Doom/game.wad
+% micropython/tools/pyboard.py --no-soft-reset -f cp DOOM1.WAD :/apps/Doom/
 ```
 
 Debugging is by resetting the badge, then connecting your favourite serial
@@ -74,5 +74,7 @@ terminal program (I like `minicom`) to the TiDAL badge REPL, before selecting
 `Doom` app on the badge screen...
 
 ## How's it going?
+
+After a month of effort on and off, it seems to work..
 
 There is now a [progress blog](https://github.com/phlash/doom-tidal/discussions/2)
