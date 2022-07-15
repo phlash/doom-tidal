@@ -140,7 +140,7 @@ uint32_t DG_GetTicksMs(void) {
 	mp_obj_t args[1] = {
 		mp_obj_new_str("ticks", 5),
 	};
-	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 2, 0, &args[0]));
+	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 1, 0, &args[0]));
 }
 
 int DG_GetKey(int *pressed, unsigned char *key) {
@@ -228,17 +228,17 @@ static void _putc(int c, void *ctx) {
 	mpt->print_strn(mpt->data, buf, 1);
 }
 
-int printf(const char *f, ...) {
-	va_list ap;
-	va_start(ap, f);
-	int n = npf_vpprintf(_putc, (void *)&mp_plat_print, f, ap);
-	va_end(ap);
-	return n;
-}
-
 int vprintf(const char *f, va_list ap) {
 	int r = npf_vpprintf(_putc, (void *)&mp_plat_print, f, ap);
 	return r;
+}
+
+int printf(const char *f, ...) {
+	va_list ap;
+	va_start(ap, f);
+	int n = vprintf(f, ap);
+	va_end(ap);
+	return n;
 }
 
 int puts(const char *s) {
@@ -281,17 +281,16 @@ double atof(const char *s) {
 	while (*s) {
 		if ('.' == *s) {
 			dot = true;
-			continue;
 		} else if (*s<'0' || *s>'9') {
 			break;
-		}
-		if (dot) {
+		} else if (dot) {
 			m /= 10.0;
 			r += (double)(*s-'0')*m;
 		} else {
 			r *= 10.0;
 			r += (double)(*s-'0');
 		}
+		s++;
 	}
 	return r;
 }
@@ -522,16 +521,13 @@ int fputs(const char *s, FILE *f) {
 	return fwrite(s, 1, strlen(s), f);
 }
 
-struct _fpdata { FILE *f; int len; };
-void _fprintf(void *p, const char *str, size_t len) {
-	struct _fpdata *d = (struct _fpdata *)p;
-	d->len = fwrite(str, 1, len, d->f);
+static void _fputc(int c, void *p) {
+	FILE *fp = (FILE *)p;
+	char b = (char)c;
+	fwrite(&b, 1, 1, fp);
 }
 int vfprintf(FILE *f, const char *fmt, va_list ap) {
-	struct _fpdata d = { f, 0 };
-	mp_print_t us = { &d, _fprintf };
-	mp_printf(&us, fmt, ap);
-	return d.len;
+	return npf_vpprintf(_fputc, f, fmt, ap);
 }
 int fprintf(FILE *p, const char *f, ...) {
 	va_list ap;
