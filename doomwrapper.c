@@ -33,6 +33,7 @@
 #undef false
 #include "m_argv.h"
 #include "doomgeneric.h"
+#include "doomkeys.h"
 
 void D_DoomMain (void);
 
@@ -143,7 +144,40 @@ uint32_t DG_GetTicksMs(void) {
 	return mp_obj_get_int(mp_call_function_n_kw(dw_callback, 1, 0, &args[0]));
 }
 
+// dw_lastkeys is a bitmap of previously held keys, we send diffs from last poll
+static uint32_t dw_lastkeys;
+#define DW_KEY_LEFT	0x01
+#define DW_KEY_RGHT	0x02
+#define DW_KEY_UP	0x04
+#define DW_KEY_DOWN	0x08
+#define DW_KEY_USE	0x10
+#define DW_KEY_FIRE	0x20
+#define DW_KEY_WEAP	0x40
+#define DW_KEY_ESC	0x80
+#define dw_checkkey(K, V) if (kdif & (K)) { \
+	*pressed = keys & (K); \
+	*key = V; \
+	if (*pressed) \
+		dw_lastkeys |= (K); \
+	else \
+		dw_lastkeys &= ~(K); \
+	return 1; \
+}
+
 int DG_GetKey(int *pressed, unsigned char *key) {
+	mp_obj_t args[1] = {
+		mp_obj_new_str("keys", 4),
+	};
+	uint32_t keys = mp_obj_get_int(mp_call_function_n_kw(dw_callback, 1, 0, &args[0]));
+	uint32_t kdif = keys ^ dw_lastkeys;
+	dw_checkkey(DW_KEY_LEFT, KEY_LEFTARROW);
+	dw_checkkey(DW_KEY_RGHT, KEY_RIGHTARROW);
+	dw_checkkey(DW_KEY_UP  , KEY_UPARROW);
+	dw_checkkey(DW_KEY_DOWN, KEY_DOWNARROW);
+	dw_checkkey(DW_KEY_USE , KEY_USE);
+	dw_checkkey(DW_KEY_FIRE, KEY_FIRE);
+	dw_checkkey(DW_KEY_WEAP, KEY_ENTER);
+	dw_checkkey(DW_KEY_ESC , KEY_ESCAPE);
 	return 0;
 }
 

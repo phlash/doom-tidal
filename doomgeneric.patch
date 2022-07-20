@@ -5956,7 +5956,7 @@ index a17de2b..3fb37b2 100644
  void M_SaveDefaults(void);
  void M_SaveDefaultsAlternate(char *main, char *extra);
 diff --git a/doomgeneric/m_controls.c b/doomgeneric/m_controls.c
-index f0ffa01..78360ed 100644
+index f0ffa01..3a838be 100644
 --- a/doomgeneric/m_controls.c
 +++ b/doomgeneric/m_controls.c
 @@ -26,47 +26,47 @@
@@ -6384,7 +6384,7 @@ index f0ffa01..78360ed 100644
 +    key_menu_right     = KEY_RIGHTARROW;
 +    key_menu_back      = KEY_BACKSPACE;
 +    key_menu_forward   = KEY_ENTER;
-+    key_menu_confirm   = 'y';
++    key_menu_confirm   = KEY_ENTER;
 +    key_menu_abort     = 'n';
 +
 +    key_menu_help      = KEY_F1;

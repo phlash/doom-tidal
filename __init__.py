@@ -96,6 +96,26 @@ class Doom(TextApp):
             return sleep_ms(arg1)
         elif "ticks" == op:
             return ticks_ms()
+        elif "keys" == op:
+            # assemble a bitfield of held buttons (rotated!)
+            keys = 0
+            if 0==JOY_DOWN.value():
+                keys |= 1
+            if 0==JOY_UP.value():
+                keys |= 2
+            if 0==JOY_LEFT.value():
+                keys |= 4
+            if 0==JOY_RIGHT.value():
+                keys |= 8
+            if 0==JOY_CENTRE.value():
+                keys |= 16
+            if 0==BUTTON_A.value():
+                keys |= 32
+            if 0==BUTTON_B.value():
+                keys |= 64
+            if 0==BUTTON_FRONT.value():
+                keys |= 128
+            return keys
         try:
             rv = None
             #print(f"Doom.callback[{self.upcalls}]({op},{arg1},{arg2},{arg3},{arg4})=", end='')
