@@ -326,6 +326,18 @@ void free(void *p) {
 	m_free(p);
 }
 
+int memcmp(void *p1, void *p2, size_t n) {
+	uint8_t *b1 = p1;
+	uint8_t *b2 = p2;
+	for (size_t i=0; i<n; i++) {
+		if (b1[i]<b2[i])
+			return -1;
+		else if (b1[i]>b2[i])
+			return 1;
+	}
+	return 0;
+}
+
 void *memmove(void *d, const void *s, size_t n) {
 	return dw_fun_table->memmove_(d, s, n);
 }

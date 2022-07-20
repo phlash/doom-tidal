@@ -3829,7 +3829,7 @@ index 755aec3..e381cd1 100644
  }
  
 diff --git a/doomgeneric/i_scale.c b/doomgeneric/i_scale.c
-index f88c694..fbad591 100644
+index f88c694..37732de 100644
 --- a/doomgeneric/i_scale.c
 +++ b/doomgeneric/i_scale.c
 @@ -32,37 +32,39 @@
@@ -4066,15 +4066,22 @@ index f88c694..fbad591 100644
      puts("");
  }
  
-@@ -401,27 +401,32 @@ static void I_InitSquashTable(byte *palette)
+@@ -401,27 +401,39 @@ static void I_InitSquashTable(byte *palette)
  // if switching to a completely different palette from the normal one
  // (in which case the mappings no longer make any sense).
  
 +#if 0
++static byte iv_old_palette[256*3*sizeof(byte)];
  void I_ResetScaleTables(byte *palette)
  {
 -    if (stretch_tables[0] != NULL)
-+	iv_last_palette = palette;
++	// compare to previous palette, only update if required
++	if (!memcmp(iv_old_palette, palette, sizeof(iv_old_palette))) {
++		puts("I_ResetScaleTables: palette unchanged");
++	} else {
++		puts("I_ResetScaleTables: palette CHANGED, but ignoring!");
++		memcpy(iv_old_palette, palette, sizeof(iv_old_palette));
++	}
 +    if (is_.stretch_tables[0] != NULL)
      {
 -        Z_Free(stretch_tables[0]);
@@ -4107,7 +4114,7 @@ index f88c694..fbad591 100644
  
  
  // 
-@@ -461,43 +466,43 @@ static boolean I_Stretch1x(int x1, int y1, int x2, int y2)
+@@ -461,43 +473,43 @@ static boolean I_Stretch1x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4165,7 +4172,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH, SCREENHEIGHT_4_3,
      I_InitStretchTables,
      I_Stretch1x,
-@@ -550,67 +555,67 @@ static boolean I_Stretch2x(int x1, int y1, int x2, int y2)
+@@ -550,67 +562,67 @@ static boolean I_Stretch2x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4253,7 +4260,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH * 2, SCREENHEIGHT_4_3 * 2,
      I_InitStretchTables,
      I_Stretch2x,
-@@ -665,91 +670,91 @@ static boolean I_Stretch3x(int x1, int y1, int x2, int y2)
+@@ -665,91 +677,91 @@ static boolean I_Stretch3x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4371,7 +4378,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH * 3, SCREENHEIGHT_4_3 * 3,
      I_InitStretchTables,
      I_Stretch3x,
-@@ -806,115 +811,115 @@ static boolean I_Stretch4x(int x1, int y1, int x2, int y2)
+@@ -806,115 +818,115 @@ static boolean I_Stretch4x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4519,7 +4526,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH * 4, SCREENHEIGHT_4_3 * 4,
      I_InitStretchTables,
      I_Stretch4x,
-@@ -953,37 +958,37 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
+@@ -953,37 +965,37 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
  
      // Need to byte-copy from buffer into the screen buffer
  
@@ -4566,7 +4573,7 @@ index f88c694..fbad591 100644
      }
  
      // test hack for Porsche Monty... scan line simulation:
-@@ -991,20 +996,20 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
+@@ -991,20 +1003,20 @@ static boolean I_Stretch5x(int x1, int y1, int x2, int y2)
  
      if (M_CheckParm("-scanline") > 0)
      {
@@ -4590,7 +4597,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH * 5, SCREENHEIGHT_4_3 * 5,
      I_InitStretchTables,
      I_Stretch5x,
-@@ -1037,19 +1042,19 @@ static inline void WriteSquashedLine1x(byte *dest, byte *src)
+@@ -1037,19 +1049,19 @@ static inline void WriteSquashedLine1x(byte *dest, byte *src)
  
          // 80% pixel 0,   20% pixel 1
  
@@ -4614,7 +4621,7 @@ index f88c694..fbad591 100644
  
          x += 5;
          src += 5;
-@@ -1070,21 +1075,21 @@ static boolean I_Squash1x(int x1, int y1, int x2, int y2)
+@@ -1070,21 +1082,21 @@ static boolean I_Squash1x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4640,7 +4647,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH_4_3, SCREENHEIGHT,
      I_InitStretchTables,
      I_Squash1x,
-@@ -1104,7 +1109,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1104,7 +1116,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
      byte *dest2;
      int x, c;
  
@@ -4649,7 +4656,7 @@ index f88c694..fbad591 100644
  
      for (x=0; x<SCREENWIDTH; )
      {
-@@ -1117,7 +1122,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1117,7 +1129,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
  
          // 60% pixel 0, 40% pixel 1
  
@@ -4658,7 +4665,7 @@ index f88c694..fbad591 100644
          DRAW_PIXEL2;
  
          // 100% pixel 1
-@@ -1127,12 +1132,12 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1127,12 +1139,12 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
  
          // 20% pixel 1, 80% pixel 2
  
@@ -4673,7 +4680,7 @@ index f88c694..fbad591 100644
          DRAW_PIXEL2;
  
          // 100% pixel 3
-@@ -1142,7 +1147,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
+@@ -1142,7 +1154,7 @@ static inline void WriteSquashedLine2x(byte *dest, byte *src)
  
          // 40% pixel 3, 60% pixel 4
  
@@ -4682,7 +4689,7 @@ index f88c694..fbad591 100644
          DRAW_PIXEL2;
  
          // 100% pixel 4
-@@ -1169,21 +1174,21 @@ static boolean I_Squash2x(int x1, int y1, int x2, int y2)
+@@ -1169,21 +1181,21 @@ static boolean I_Squash2x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4708,7 +4715,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH_4_3 * 2, SCREENHEIGHT * 2,
      I_InitStretchTables,
      I_Squash2x,
-@@ -1199,8 +1204,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
+@@ -1199,8 +1211,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
      byte *dest2, *dest3;
      int x, c;
  
@@ -4719,7 +4726,7 @@ index f88c694..fbad591 100644
  
      for (x=0; x<SCREENWIDTH; )
      {
-@@ -1215,7 +1220,7 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
+@@ -1215,7 +1227,7 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
  
          // 50% pixel 0, 50% pixel 1
  
@@ -4728,7 +4735,7 @@ index f88c694..fbad591 100644
  
          DRAW_PIXEL3;
  
-@@ -1235,8 +1240,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
+@@ -1235,8 +1247,8 @@ static inline void WriteSquashedLine3x(byte *dest, byte *src)
  //
  // 3x scale squashed (800x600)
  //
@@ -4739,7 +4746,7 @@ index f88c694..fbad591 100644
  // exactly.
  //
  
-@@ -1252,21 +1257,21 @@ static boolean I_Squash3x(int x1, int y1, int x2, int y2)
+@@ -1252,21 +1264,21 @@ static boolean I_Squash3x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4765,7 +4772,7 @@ index f88c694..fbad591 100644
      800, 600,
      I_InitSquashTable,
      I_Squash3x,
-@@ -1282,9 +1287,9 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1282,9 +1294,9 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
      int c;
      byte *dest2, *dest3, *dest4;
  
@@ -4778,7 +4785,7 @@ index f88c694..fbad591 100644
  
      for (x=0; x<SCREENWIDTH; )
      {
-@@ -1299,7 +1304,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1299,7 +1311,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 20% pixel 0,  80% pixel 1
  
@@ -4787,7 +4794,7 @@ index f88c694..fbad591 100644
          DRAW_PIXEL4;
  
          // 100% pixel 1 x2
-@@ -1310,7 +1315,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1310,7 +1322,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 40% pixel 1, 60% pixel 2
  
@@ -4796,7 +4803,7 @@ index f88c694..fbad591 100644
          DRAW_PIXEL4;
  
          // 100% pixel 2 x2
-@@ -1321,7 +1326,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1321,7 +1333,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 60% pixel 2, 40% pixel 3
  
@@ -4805,7 +4812,7 @@ index f88c694..fbad591 100644
          DRAW_PIXEL4;
  
          // 100% pixel 3 x2
-@@ -1332,7 +1337,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
+@@ -1332,7 +1344,7 @@ static inline void WriteSquashedLine4x(byte *dest, byte *src)
  
          // 80% pixel 3, 20% pixel 4
  
@@ -4814,7 +4821,7 @@ index f88c694..fbad591 100644
          DRAW_PIXEL4;
  
          // 100% pixel 4
-@@ -1363,21 +1368,21 @@ static boolean I_Squash4x(int x1, int y1, int x2, int y2)
+@@ -1363,21 +1375,21 @@ static boolean I_Squash4x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4840,7 +4847,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH_4_3 * 4, SCREENHEIGHT * 4,
      I_InitStretchTables,
      I_Squash4x,
-@@ -1393,10 +1398,10 @@ static inline void WriteSquashedLine5x(byte *dest, byte *src)
+@@ -1393,10 +1405,10 @@ static inline void WriteSquashedLine5x(byte *dest, byte *src)
      int c;
      byte *dest2, *dest3, *dest4, *dest5;
  
@@ -4855,7 +4862,7 @@ index f88c694..fbad591 100644
  
      for (x=0; x<SCREENWIDTH; ++x)
      {
-@@ -1428,21 +1433,21 @@ static boolean I_Squash5x(int x1, int y1, int x2, int y2)
+@@ -1428,21 +1440,21 @@ static boolean I_Squash5x(int x1, int y1, int x2, int y2)
          return false;
      }    
  
@@ -4881,7 +4888,7 @@ index f88c694..fbad591 100644
      SCREENWIDTH_4_3 * 5, SCREENHEIGHT * 5,
      I_InitStretchTables,
      I_Squash5x,
-@@ -1450,3 +1455,96 @@ screen_mode_t mode_squash_5x = {
+@@ -1450,3 +1462,96 @@ screen_mode_t mode_squash_5x = {
  };
  
  
@@ -5253,7 +5260,7 @@ index 2d6a7cf..1c978b0 100644
  
  // Sleep for a specified number of ms
 diff --git a/doomgeneric/i_video.c b/doomgeneric/i_video.c
-index bf63035..78fddf2 100644
+index bf63035..642b4ff 100644
 --- a/doomgeneric/i_video.c
 +++ b/doomgeneric/i_video.c
 @@ -22,8 +22,10 @@
@@ -5346,12 +5353,6 @@ index bf63035..78fddf2 100644
 -// Palette converted to RGB565
 -
 -static uint16_t rgb565_palette[256];
--
--void cmap_to_rgb565(uint16_t * out, uint8_t * in, int in_pixels)
--{
--    int i, j;
--    struct color c;
--    uint16_t r, g, b;
 +struct color {
 +    uint32_t b:8;
 +    uint32_t g:8;
@@ -5361,6 +5362,13 @@ index bf63035..78fddf2 100644
 +// ARGB palette
 +struct color iv_colors[256];
  
+-void cmap_to_rgb565(uint16_t * out, uint8_t * in, int in_pixels)
+-{
+-    int i, j;
+-    struct color c;
+-    uint16_t r, g, b;
++// Palette converted to RGB565
+ 
 -    for (i = 0; i < in_pixels; i++)
 -    {
 -        c = colors[*in]; 
@@ -5368,8 +5376,7 @@ index bf63035..78fddf2 100644
 -        g = ((uint16_t)(c.g >> 2)) << 5;
 -        b = ((uint16_t)(c.b >> 3)) << 0;
 -        *out = (r | g | b);
-+// Palette converted to RGB565
- 
+-
 -        in++;
 -        for (j = 0; j < fb_scaling; j++) {
 -            out++;
@@ -5454,22 +5461,12 @@ index bf63035..78fddf2 100644
      x_offset     = (((s_Fb.xres - (SCREENWIDTH  * fb_scaling)) * s_Fb.bits_per_pixel/8)) / 2; // XXX: siglent FB hack: /4 instead of /2, since it seems to handle the resolution in a funny way
      //x_offset     = 0;
      x_offset_end = ((s_Fb.xres - (SCREENWIDTH  * fb_scaling)) * s_Fb.bits_per_pixel/8) - x_offset;
-@@ -294,6 +266,88 @@ void I_FinishUpdate (void)
+@@ -294,6 +266,78 @@ void I_FinishUpdate (void)
  	DG_DrawFrame();
  }
  
 +// TiDAL badge graphics
 +#else
-+void cmap_to_rgb565(uint16_t * out, uint8_t * in, int in_pixels)
-+{
-+    int i;
-+
-+    for (i = 0; i < in_pixels; i++)
-+    {
-+        *out++ = iv_rgb565_palette[*in];
-+    }
-+}
-+
 +void I_InitGraphics()
 +{
 +    mouse_acceleration = 2.0;
@@ -5503,16 +5500,16 @@ index bf63035..78fddf2 100644
 +
 +void I_FinishUpdate(void)
 +{
-+    // scale, then translate to RGB565
++    // scale, then translate to RGB565, finally swap bytes as display is big endian :)
 +    int y;
 +    byte *in;
 +    uint16_t *out;
 +    all_modes[iv_scaler_idx]->DrawScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
 +    for (y=0, in=iv_scaled_video, out=(uint16_t *)DG_ScreenBuffer; y<DOOMGENERIC_RESY; y++) {
-+        //cmap_to_rgb565(out, in, DOOMGENERIC_RESX);
 +        int x;
 +        for (x=0; x<DOOMGENERIC_RESX; x++) {
-+            out[x] = iv_rgb565_palette[in[x]];
++			uint16_t rgb =iv_rgb565_palette[in[x]];
++            out[x] = (rgb>>8) | (rgb<<8);
 +        }
 +        in += DOOMGENERIC_RESX;
 +        out += DOOMGENERIC_RESX;
@@ -5543,7 +5540,7 @@ index bf63035..78fddf2 100644
  //
  // I_ReadScreen
  //
-@@ -313,29 +367,26 @@ void I_ReadScreen (byte* scr)
+@@ -313,29 +357,26 @@ void I_ReadScreen (byte* scr)
  void I_SetPalette (byte* palette)
  {
  	int i;
@@ -5593,7 +5590,7 @@ index bf63035..78fddf2 100644
  }
  
  // Given an RGB value, find the closest matching palette index.
-@@ -353,9 +404,9 @@ int I_GetPaletteIndex (int r, int g, int b)
+@@ -353,9 +394,9 @@ int I_GetPaletteIndex (int r, int g, int b)
  
      for (i = 0; i < 256; ++i)
      {
